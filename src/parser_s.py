@@ -2,16 +2,21 @@ from lexer import Token
 from anytree import NodeMixin, RenderTree
 
 
-class Node(NodeMixin):
-    def __init__(self, name, value=None, children=None):
+class AnnotatedNode(NodeMixin):
+    def __init__(self, name, value=None, type=None, children=None):
         self.name = name
         self.value = value
+        self.type = type
         if children:
             self.children = children
 
     def __str__(self):
-        if self.value:
-            return f"{self.value}"
+        if self.value and self.type:
+            return f"{self.name} (Type: {self.type}, Value: {self.value})"
+        elif self.value:
+            return f"{self.name} (Value: {self.value})"
+        elif self.type:
+            return f"{self.name} (Type: {self.type})"
         else:
             return f"{self.name}"
 
@@ -42,9 +47,10 @@ class Parser:
         declarations = self.declaration_list()
         statements = self.sentence_list()
         self.eat("RBRACE")
-        return Node(
+        return AnnotatedNode(
             name="Program",
             value=token.value,
+            type="Main Program",
             children=declarations + statements,
         )
 
@@ -68,11 +74,11 @@ class Parser:
         else:
             return self.sentence()
 
-    def variable_declaration(self, type):
-        self.eat(type.upper())
+    def variable_declaration(self, var_type):
+        self.eat(var_type.upper())
         ids = self.identifier()
         self.eat("SEMICOLON")
-        return Node(name="VariableDeclaration", value=type, children=ids)
+        return AnnotatedNode(name="VariableDeclaration", value=var_type, type="Variable", children=ids)
 
     def identifier(self):
         ids = []
@@ -82,7 +88,7 @@ class Parser:
             self.eat("COMMA")
             ids.append(self.current_token.value)
             self.eat("IDENTIFIER")
-        return [Node(name="Identifier", value=id) for id in ids]
+        return [AnnotatedNode(name="Identifier", value=id, type="Variable") for id in ids]
 
     def sentence_list(self):
         statements = []
@@ -115,49 +121,39 @@ class Parser:
             self.eat("ASSIGN")
             expression = self.sent_expression()
             self.eat("SEMICOLON")
-            return Node(
+            return AnnotatedNode(
                 "Assignment",
                 value=assign_token.value,
-                children=[Node("Identifier", value=identifier_token), expression],
+                type="Assignment",
+                children=[AnnotatedNode("Identifier", value=identifier_token, type="Variable"), expression],
             )
         elif self.current_token.type == "INCREMENT_OPERATOR":
             operator_token = self.current_token
             self.eat("INCREMENT_OPERATOR")
             self.eat("SEMICOLON")
-            return Node(
+            return AnnotatedNode(
                 name="Increment",
                 value=operator_token.value,
-                children=[Node(name="Identifier", value=identifier_token)],
+                type="Increment",
+                children=[AnnotatedNode(name="Identifier", value=identifier_token, type="Variable")],
             )
         elif self.current_token.type == "DECREMENT_OPERATOR":
             operator_token = self.current_token
             self.eat("DECREMENT_OPERATOR")
             self.eat("SEMICOLON")
-            return Node(
+            return AnnotatedNode(
                 name="Decrement",
                 value=operator_token.value,
-                children=[Node("Identifier", value=identifier_token)],
+                type="Decrement",
+                children=[AnnotatedNode("Identifier", value=identifier_token, type="Variable")],
             )
         else:
             raise Exception(f"Unexpected token {self.current_token.type}")
 
-    def assignment(self):
-        identifier_token = self.current_token.value
-        self.eat("IDENTIFIER")
-        assign_token = self.current_token
-        self.eat("ASSIGN")
-        expression = self.sent_expression()
-        self.eat("SEMICOLON")
-        return Node(
-            name="Assignment",
-            value=assign_token.value,
-            children=[Node(name="Identifier", value=identifier_token), expression],
-        )
-
     def sent_expression(self):
         if self.current_token.type == "SEMICOLON":
             self.eat("SEMICOLON")
-            return Node("EmptyStatement")
+            return AnnotatedNode("EmptyStatement")
         else:
             return self.expression()
 
@@ -175,24 +171,26 @@ class Parser:
             self.eat("LBRACE")
             false_branch = self.sentence_list()
             self.eat("RBRACE")
-            return Node(
+            return AnnotatedNode(
                 name="If",
                 value="if",
+                type="Conditional",
                 children=[
                     condition,
-                    Node(name="TrueBranch", value="true_branch", children=true_branch),
-                    Node(
+                    AnnotatedNode(name="TrueBranch", value="true_branch", children=true_branch),
+                    AnnotatedNode(
                         name="FalseBranch", value="false_branch", children=false_branch
                     ),
                 ],
             )
         else:
-            return Node(
+            return AnnotatedNode(
                 name="If",
                 value="if",
+                type="Conditional",
                 children=[
                     condition,
-                    Node(name="TrueBranch", value="true_branch", children=true_branch),
+                    AnnotatedNode(name="TrueBranch", value="true_branch", children=true_branch),
                 ],
             )
 
@@ -204,7 +202,7 @@ class Parser:
         self.eat("LBRACE")
         statements = self.sentence_list()
         self.eat("RBRACE")
-        return Node(name="While", value="while", children=[condition] + statements)
+        return AnnotatedNode(name="While", value="while", type="Loop", children=[condition] + statements)
 
     def do_while_loop_sentence(self):
         self.eat("DO")
@@ -215,21 +213,21 @@ class Parser:
         self.eat("LPAREN")
         condition = self.expression()
         self.eat("RPAREN")
-        return Node(name="DoWhile", value="do_while", children=statements + [condition])
+        return AnnotatedNode(name="DoWhile", value="do_while", type="Loop", children=statements + [condition])
 
     def cin_sentence(self):
         identifier = self.current_token.value
         self.eat("CIN")
         self.eat("IDENTIFIER")
         self.eat("SEMICOLON")
-        return Node(name="Input", value=identifier)
+        return AnnotatedNode(name="Input", value=identifier, type="Input")
 
     def cout_sentence(self):
         identifier = self.current_token.value
         self.eat("COUT")
         expression = self.expression()
         self.eat("SEMICOLON")
-        return Node(name="Output", value=identifier, children=[expression])
+        return AnnotatedNode(name="Output", value=identifier, type="Output", children=[expression])
 
     def expression(self):
         node = self.logical_expression()
@@ -243,9 +241,10 @@ class Parser:
         ]:
             token = self.current_token
             self.eat(token.type)
-            node = Node(
+            node = AnnotatedNode(
                 name=token.type,
                 value=token.value,
+                type="Comparison",
                 children=[node, self.logical_expression()],
             )
         return node
@@ -255,9 +254,10 @@ class Parser:
         while self.current_token and self.current_token.type in ["AND", "OR"]:
             token = self.current_token
             self.eat(token.type)
-            node = Node(
+            node = AnnotatedNode(
                 name=token.type,
                 value=token.value,
+                type="Logical Operation",
                 children=[node, self.simple_expression()],
             )
         return node
@@ -267,8 +267,8 @@ class Parser:
         while self.current_token and self.current_token.type in ["PLUS", "MINUS"]:
             token = self.current_token
             self.eat(token.type)
-            node = Node(
-                name=token.type, value=token.value, children=[node, self.term()]
+            node = AnnotatedNode(
+                name=token.type, value=token.value, type="Arithmetic", children=[node, self.term()]
             )
         return node
 
@@ -281,8 +281,8 @@ class Parser:
         ]:
             token = self.current_token
             self.eat(token.type)
-            node = Node(
-                name=token.type, value=token.value, children=[node, self.factor()]
+            node = AnnotatedNode(
+                name=token.type, value=token.value, type="Arithmetic", children=[node, self.factor()]
             )
         return node
 
@@ -291,8 +291,8 @@ class Parser:
         while self.current_token and self.current_token.type == "POW":
             token = self.current_token
             self.eat("POW")
-            node = Node(
-                name=token.type, value=token.value, children=[node, self.component()]
+            node = AnnotatedNode(
+                name=token.type, value=token.value, type="Exponentiation", children=[node, self.component()]
             )
         return node
 
@@ -310,11 +310,11 @@ class Parser:
         ]:
             value = self.current_token.value
             self.eat(self.current_token.type)
-            return Node(name="Number", value=value)
+            return AnnotatedNode(name="Number", value=value, type="Literal")
         elif self.current_token.type == "IDENTIFIER":
             identifier = self.current_token.value
             self.eat("IDENTIFIER")
-            return Node(name="Identifier", value=identifier)
+            return AnnotatedNode(name="Identifier", value=identifier, type="Variable")
         else:
             raise Exception(f"Unexpected token {self.current_token.type}")
 
@@ -353,4 +353,4 @@ if __name__ == "__main__":
             print(tree_str)
 
             # Optionally, export the tree to a file (e.g., a dot file for visualization)
-            DotExporter(ast).to_dotfile("ast.dot")
+            #DotExporter(ast).to_dotfile("ast.dot")

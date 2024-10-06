@@ -14,7 +14,7 @@ from PyQt5.QtWidgets import (
 
 lexer = []  # List to store the widgets of the lexer dock panel
 syntactic = []  # List to store the widgets of the syntactic dock panel
-
+semantic = []
 
 def set_up_dock_panels(window: QMainWindow):
     """
@@ -47,12 +47,16 @@ def set_up_dock_panels(window: QMainWindow):
     window.addDockWidget(Qt.BottomDockWidgetArea, sintactic_panel)
 
     # Panel for the Semantic Analysis
+    # Panel for the Semantic Analysis
     semantic_panel = QDockWidget("Semantico", window)
     semantic_panel.setStyleSheet(open("./src/css/style.css", encoding="utf-8").read())
-    semantic_widget = QTextBrowser()
+    semantic_widget = QTreeWidget()  # Cambiado a QTreeWidget para mostrar árboles
     semantic_widget.setStyleSheet(open("./src/css/style.css", encoding="utf-8").read())
+    semantic_widget.setHeaderHidden(True)
+    semantic.append(semantic_widget)  # Añadir a la lista 'semantic'
     semantic_panel.setWidget(semantic_widget)
     window.addDockWidget(Qt.BottomDockWidgetArea, semantic_panel)
+
 
     # Panel for the Hash Table
     hash_table_panel = QDockWidget("Hash Table", window)
@@ -149,6 +153,43 @@ def set_syntactic_analysis_result(ast):
     for child in ast.children:
         add_tree_item(root_item, child)
         syntactic[0].expandAll()
+
+def set_semantic_analysis_result(ast):
+    """Set the results of the semantic analysis in the dock panel as a collapsible tree."""
+    if len(semantic) > 0:
+        semantic[0].clear()  # Limpiar el contenido del panel semántico
+        
+        # Crear el nodo raíz con el nombre del programa
+        root_item = QTreeWidgetItem(semantic[0], [ast.name])
+        
+        # Función recursiva para agregar nodos hijos
+        def add_tree_items(parent_item, node):
+            # Crear un nodo hijo para cada hijo del nodo actual
+            for child in node.children:
+                child_item = QTreeWidgetItem(parent_item, [child.name])
+
+                # Si el nodo tiene un tipo y valor, los mostramos como hijos
+                if child.type is not None and child.value is not None:
+                    # Añadir el tipo como nodo hijo
+                    type_item = QTreeWidgetItem(child_item, [f"Type: {child.type}"])
+                    # Añadir el valor como nodo hijo
+                    value_item = QTreeWidgetItem(child_item, [f"Value: {child.value}"])
+
+                # Llamada recursiva para agregar los nodos hijos de este nodo
+                add_tree_items(child_item, child)
+        
+        # Llamada para agregar los nodos hijos desde la raíz
+        add_tree_items(root_item, ast)
+        
+        # Expander todos los nodos del árbol para visualizarlos
+        semantic[0].expandAll()
+    else:
+        print("Error: 'semantic' panel not initialized.")
+
+
+
+
+
 
 
 def add_tree_item(parent, node):

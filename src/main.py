@@ -23,6 +23,8 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtCore import Qt, QDir, QModelIndex
 from PyQt5.QtGui import QFont
 from PyQt5.Qsci import QsciScintilla
+from anytree import RenderTree
+
 
 from components.editor import Editor
 from components.menu import set_up_menu
@@ -30,6 +32,7 @@ from components.dock_panels import (
     set_up_dock_panels,
     set_lexical_analysis_result,
     set_syntactic_analysis_result,
+    set_semantic_analysis_result
 )
 from components.side_bar import set_up_sidebar
 
@@ -184,14 +187,42 @@ class MainWindow(QMainWindow):
     def compile(self):
         """Compile the current file."""
         if self.current_file is not None:
-            lexycal_results = get_lexical_analysis(self.current_file)
-            set_lexical_analysis_result(lexycal_results)
-            if lexycal_results[1] == []:
-                parser = Parser(lexycal_results[0])
-                set_syntactic_analysis_result(parser.parse())
+            # Realizar análisis léxico
+            tkns, errs = get_lexical_analysis(self.current_file)
+            set_lexical_analysis_result((tkns, errs))
+            
+            # Verificar si no hubo errores léxicos
+            if errs == []:
+                # Realizar análisis sintáctico y guardar el resultado en 'ast'
+                parser = Parser(tkns)
+                ast = parser.parse()
+                
+                # Mostrar el resultado sintáctico en el panel
+                set_syntactic_analysis_result(ast)
+
+                # Renderizar el árbol sintáctico como una cadena
+                tree_str = parser.render_tree(ast)
+                
+                # Mostrar el árbol sintáctico en consola (para depuración)
+                print(tree_str)
+
+                # Realizar análisis semántico (opcional, si lo tienes implementado)
+                #semantic_tree_str = self.analyze_semantics(ast)
+                set_semantic_analysis_result(ast)
+
+                # Indicar que la compilación fue exitosa
                 self.statusBar().showMessage("Compilation successful", 2000)
             else:
-                self.statusBar().showMessage("Compilation failed", 2000)
+                # Mostrar mensaje de error si hubo fallos en el análisis léxico
+                self.statusBar().showMessage("Compilation failed due to lexical errors", 2000)
+
+    
+    def analyze_semantics(self, syntactic_result):
+        """Genera el árbol semántico anotado a partir del resultado sintáctico."""
+        tree_str = ""
+        for pre, _, node in RenderTree(syntactic_result):
+            tree_str += "%s%s\n" % (pre, node)
+        return tree_str
 
     def close_tab(self, index):
         """Close the tab at the given index."""
