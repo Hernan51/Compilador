@@ -9,12 +9,16 @@ from PyQt5.QtWidgets import (
     QDockWidget,
     QTreeWidget,
     QTreeWidgetItem,
+    QTableWidget,
+    QTableWidgetItem
 )
 
 
 lexer = []  # List to store the widgets of the lexer dock panel
 syntactic = []  # List to store the widgets of the syntactic dock panel
 semantic = []
+hash_table = []  
+
 
 def set_up_dock_panels(window: QMainWindow):
     """
@@ -61,12 +65,16 @@ def set_up_dock_panels(window: QMainWindow):
     # Panel for the Hash Table
     hash_table_panel = QDockWidget("Hash Table", window)
     hash_table_panel.setStyleSheet(open("./src/css/style.css", encoding="utf-8").read())
-    hash_table_widget = QTextBrowser()
-    hash_table_widget.setStyleSheet(
-        open("./src/css/style.css", encoding="utf-8").read()
-    )
+    hash_table_widget = QTableWidget()  # Cambia de QTextBrowser a QTableWidget
+    hash_table_widget.setColumnCount(5)  # Define el número de columnas
+    hash_table_widget.setHorizontalHeaderLabels(["Variable", "Type", "Value", "LOC", "Lines"])  # Etiquetas de las columnas
+    hash_table_widget.setStyleSheet(open("./src/css/style.css", encoding="utf-8").read())
     hash_table_panel.setWidget(hash_table_widget)
     window.addDockWidget(Qt.BottomDockWidgetArea, hash_table_panel)
+
+    # Añadir el widget a una lista global si es necesario (por ejemplo, para acceder desde otras funciones)
+    hash_table.append(hash_table_widget)
+
 
     # Panel for the Intermediate Code
     intermediate_code_panel = QDockWidget("Codigo Intermedio", window)
@@ -185,6 +193,17 @@ def set_semantic_analysis_result(ast):
         semantic[0].expandAll()
     else:
         print("Error: 'semantic' panel not initialized.")
+
+def set_hash_table(symbols):
+    hash_table[0].setRowCount(len(symbols))
+    for idx, (name, info) in enumerate(symbols.items()):
+        hash_table[0].setItem(idx, 0, QTableWidgetItem(name))
+        hash_table[0].setItem(idx, 1, QTableWidgetItem(info["type"]))
+        hash_table[0].setItem(idx, 2, QTableWidgetItem(str(info["value"])))
+        hash_table[0].setItem(idx, 3, QTableWidgetItem(str(idx + 1)))  # Usar el índice + 1 para LOC
+        hash_table[0].setItem(idx, 4, QTableWidgetItem(", ".join(str(line) for line in info["lines"])))
+
+
 
 
 

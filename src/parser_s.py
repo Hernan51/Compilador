@@ -3,10 +3,11 @@ from anytree import NodeMixin, RenderTree
 
 
 class AnnotatedNode(NodeMixin):
-    def __init__(self, name, value=None, type=None, children=None):
+    def __init__(self, name, value=None, type=None, line=None, children=None):
         self.name = name
         self.value = value
         self.type = type
+        self.line = line
         if children:
             self.children = children
 
@@ -75,20 +76,24 @@ class Parser:
             return self.sentence()
 
     def variable_declaration(self, var_type):
+        token = self.current_token  # El token tiene la línea
         self.eat(var_type.upper())
-        ids = self.identifier()
+        ids = self.identifier()  # Ya no pasamos el número de línea aquí
         self.eat("SEMICOLON")
-        return AnnotatedNode(name="VariableDeclaration", value=var_type, type="Variable", children=ids)
+        return AnnotatedNode(name="VariableDeclaration", value=var_type, type="Variable", line=token.lineno, children=ids)
+
+
 
     def identifier(self):
         ids = []
-        ids.append(self.current_token.value)
-        self.eat("IDENTIFIER")
-        while self.current_token and self.current_token.type == "COMMA":
-            self.eat("COMMA")
-            ids.append(self.current_token.value)
+        while self.current_token.type == "IDENTIFIER":
+            token = self.current_token  # Guarda el token para extraer la línea
+            ids.append(AnnotatedNode(name="Identifier", value=token.value, type="Variable", line=token.lineno))
             self.eat("IDENTIFIER")
-        return [AnnotatedNode(name="Identifier", value=id, type="Variable") for id in ids]
+            if self.current_token.type == "COMMA":
+                self.eat("COMMA")
+        return ids
+
 
     def sentence_list(self):
         statements = []
@@ -323,6 +328,8 @@ class Parser:
         for pre, _, node in RenderTree(ast):
             tree_str += "%s%s\n" % (pre, node)
         return tree_str
+
+    
 
 
 # Example usage

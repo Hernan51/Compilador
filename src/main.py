@@ -1,6 +1,7 @@
 """Main file of the application."""
 
 import sys
+import re
 import os
 from pathlib import Path
 from parser_s import Parser
@@ -25,6 +26,9 @@ from PyQt5.QtGui import QFont
 from PyQt5.Qsci import QsciScintilla
 from anytree import RenderTree
 
+from symbol_table import fill_symbol_table  # Reemplaza symbol_table_module con el archivo correcto
+from symbol_table import SymbolTable  # Asegúrate de que el archivo y ruta sean correctos
+
 
 from components.editor import Editor
 from components.menu import set_up_menu
@@ -32,7 +36,8 @@ from components.dock_panels import (
     set_up_dock_panels,
     set_lexical_analysis_result,
     set_syntactic_analysis_result,
-    set_semantic_analysis_result
+    set_semantic_analysis_result,
+    set_hash_table
 )
 from components.side_bar import set_up_sidebar
 
@@ -186,6 +191,8 @@ class MainWindow(QMainWindow):
 
     def compile(self):
         """Compile the current file."""
+        loc = 0  # Inicializa el LOC al inicio de la compilación
+
         if self.current_file is not None:
             # Realizar análisis léxico
             tkns, errs = get_lexical_analysis(self.current_file)
@@ -200,15 +207,24 @@ class MainWindow(QMainWindow):
                 # Mostrar el resultado sintáctico en el panel
                 set_syntactic_analysis_result(ast)
 
+                set_semantic_analysis_result(ast)
+
                 # Renderizar el árbol sintáctico como una cadena
                 tree_str = parser.render_tree(ast)
                 
+                
+                # Crear la tabla de símbolos
+                symbol_table = SymbolTable()
+                fill_symbol_table(ast, symbol_table)
+
+                symbols = symbol_table.get_symbols()
+                print(symbols)
+                # Mostrar la tabla de símbolos en el panel
+                set_hash_table(symbols)
+
+                
                 # Mostrar el árbol sintáctico en consola (para depuración)
                 print(tree_str)
-
-                # Realizar análisis semántico (opcional, si lo tienes implementado)
-                #semantic_tree_str = self.analyze_semantics(ast)
-                set_semantic_analysis_result(ast)
 
                 # Indicar que la compilación fue exitosa
                 self.statusBar().showMessage("Compilation successful", 2000)
@@ -223,6 +239,9 @@ class MainWindow(QMainWindow):
         for pre, _, node in RenderTree(syntactic_result):
             tree_str += "%s%s\n" % (pre, node)
         return tree_str
+    
+    
+
 
     def close_tab(self, index):
         """Close the tab at the given index."""
@@ -336,7 +355,55 @@ class MainWindow(QMainWindow):
 
         self.setCentralWidget(body_frame)
 
+    
 
+def extract_symbols_from_tree(tree_str):
+        """
+        Procesa el tree_str para extraer los símbolos (variables, tipos, valores).
+        """
+        symbol_table = {}
+
+        # Expresiones regulares para capturar los diferentes elementos del árbol
+        variable_decl_pattern = re.compile(r'VariableDeclaration \(Type: Variable, Value: (\w+)\)')
+        identifier_pattern = re.compile(r'Identifier \(Type: Variable, Value: (\w+)\)')
+        assignment_pattern = re.compile(r'Assignment \(Type: Assignment, Value: =\)')
+        number_pattern = re.compile(r'Number \(Type: Literal, Value: ([\d\.]+)\)')
+        
+        lines = tree_str.split('\n')  # Dividir el tree_str en líneas
+
+        current_type = None
+        current_assignment = None
+        
+        for line in lines:
+            # Detectar una declaración de variable
+            match_decl = variable_decl_pattern.search(line)
+            if match_decl:
+                current_type = match_decl.group(1)
+                continue
+            
+            # Detectar un identificador
+            match_id = identifier_pattern.search(line)
+            if match_id:
+                var_name = match_id.group(1)
+                if var_name not in symbol_table:
+                    symbol_table[var_name] = {'type': current_type, 'value': None, 'loc': len(symbol_table), 'lines': []}
+            
+            # Detectar una asignación
+            match_assign = assignment_pattern.search(line)
+            if match_assign:
+                current_assignment = True
+                continue
+
+            # Detectar un valor literal en una asignación
+            match_number = number_pattern.search(line)
+            if match_number and current_assignment:
+                value = float(match_number.group(1))
+                last_var = list(symbol_table.keys())[-1]
+                symbol_table[last_var]['value'] = value
+                current_assignment = False  # Terminar la asignación
+
+        return symbol_table
+    
 if __name__ == "__main__":
     app = QApplication([])
     window = MainWindow()
