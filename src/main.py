@@ -219,6 +219,7 @@ class MainWindow(QMainWindow):
 
                 symbols = symbol_table.get_symbols()
                 print(symbols)
+                print("Tabla de símbolos generada:", symbols)
                 # Mostrar la tabla de símbolos en el panel
                 set_hash_table(symbols)
 

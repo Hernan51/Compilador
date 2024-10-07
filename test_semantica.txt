@@ -1,6 +1,8 @@
 main {
     int x;
     int y;
+    float x;  // Este 'x' debería causar una colisión en la tabla de símbolos
     x = 10;
     y = x * 2;
+    x = 30.5;
 }

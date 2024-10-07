@@ -195,13 +195,31 @@ def set_semantic_analysis_result(ast):
         print("Error: 'semantic' panel not initialized.")
 
 def set_hash_table(symbols):
-    hash_table[0].setRowCount(len(symbols))
-    for idx, (name, info) in enumerate(symbols.items()):
-        hash_table[0].setItem(idx, 0, QTableWidgetItem(name))
-        hash_table[0].setItem(idx, 1, QTableWidgetItem(info["type"]))
-        hash_table[0].setItem(idx, 2, QTableWidgetItem(str(info["value"])))
-        hash_table[0].setItem(idx, 3, QTableWidgetItem(str(idx + 1)))  # Usar el índice + 1 para LOC
-        hash_table[0].setItem(idx, 4, QTableWidgetItem(", ".join(str(line) for line in info["lines"])))
+    """
+    Actualiza la UI con el contenido de la tabla de símbolos.
+    """
+    hash_table[0].setRowCount(sum(len(entry) for entry in symbols.values()))
+    
+    idx = 0  # Índice de fila en la tabla
+
+    # Iterar sobre los símbolos y sus posibles colisiones
+    for var_name, symbol_list in symbols.items():
+        for symbol in symbol_list:  # symbol_list es la lista de colisiones
+            # variable name
+            hash_table[0].setItem(idx, 0, QTableWidgetItem(var_name))
+
+            # Accede a los campos 'type', 'value', 'loc', y 'lines'
+            hash_table[0].setItem(idx, 1, QTableWidgetItem(symbol["type"]))
+            hash_table[0].setItem(idx, 2, QTableWidgetItem(str(symbol["value"])))
+            hash_table[0].setItem(idx, 3, QTableWidgetItem(str(symbol["loc"])))
+
+            # Solo agregar líneas que no sean None
+            valid_lines = [str(line) for line in symbol["lines"] if line is not None]
+            hash_table[0].setItem(idx, 4, QTableWidgetItem(", ".join(valid_lines)))
+            
+            idx += 1  # Incrementar el índice de fila
+
+
 
 
 
