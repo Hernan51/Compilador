@@ -191,6 +191,8 @@ class MainWindow(QMainWindow):
 
     
 
+    
+
 
     def compile(self):
         """Compile the current file."""
@@ -204,15 +206,13 @@ class MainWindow(QMainWindow):
                 # Obtener las líneas de código enumeradas
                 code_lines = enumerate_code_lines(self.current_file)
 
-                # Imprimir las líneas de código enumeradas
-                print("Líneas de código:")
-                for line_num, code in code_lines.items():
-                    print(f"Línea {line_num}: {code}")
+            
             
             # Verificar si no hubo errores léxicos
             if errs == []:
+                symbol_table = SymbolTable()
                 # Realizar análisis sintáctico y guardar el resultado en 'ast'
-                parser = Parser(tkns)
+                parser = Parser(tkns,symbol_table)
                 ast = parser.parse()
                 
                 # Mostrar el resultado sintáctico en el panel
@@ -220,14 +220,30 @@ class MainWindow(QMainWindow):
 
                 set_semantic_analysis_result(ast)
 
+                assign_lines = self.extract_assignment_lines(tkns)
+                fill_symbol_table(ast, symbol_table, assign_lines)
+
+                # **Paso 2: Buscar las variables en las líneas de código adicionales**
+                print("Líneas de código:")
+                for line_num, code in code_lines.items():
+                    # Remover los comentarios antes de buscar las variables
+                    code_without_comments = remove_comments(code)
+                    
+                    # Imprimir la línea de código sin comentarios
+                    print(f"Línea {line_num}: {code_without_comments}")
+                    
+                    for variable in symbol_table.get_symbols().keys():
+                        # Usar una expresión regular para buscar la variable como palabra completa
+                        # \b asegura que sea una palabra completa (no parte de otra palabra)
+                        if re.search(rf'\b{re.escape(variable)}\b', code_without_comments):
+                            symbol_table.add_usage(variable, line_num)
+
                 # Renderizar el árbol sintáctico como una cadena
                 tree_str = parser.render_tree(ast)
                 print(tree_str)
                 print("ast",ast)
                 # Crear la tabla de símbolos
-                symbol_table = SymbolTable()
-                assign_lines = self.extract_assignment_lines(tkns)
-                fill_symbol_table(ast, symbol_table,assign_lines)
+                
 
                 symbols = symbol_table.get_symbols()
                 #print("symbols",symbols)
@@ -369,23 +385,20 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(body_frame)
     
     def extract_assignment_lines(self, tokens):
-        """
-        Extrae las líneas donde ocurren las asignaciones (ASSIGN) a partir del análisis léxico.
-        """
-        assign_lines = {}
-        current_var = None
-
+        """Extrae las líneas de las asignaciones de variables."""
+        assignment_lines = {}
+        
         for token in tokens:
-            if token.type == "IDENTIFIER":
-                # Almacenar el identificador actual para asociarlo con la siguiente asignación
-                current_var = token.value
-            elif token.type == "ASSIGN" and current_var is not None:
-                # Guardar la línea de la asignación para la variable actual
-                assign_lines[current_var] = token.lineno
-                current_var = None  # Reiniciar la variable actual
+            if token.type == 'ID':  # Identificadores de variables
+                if token.value not in assignment_lines:
+                    assignment_lines[token.value] = []
+                assignment_lines[token.value].append(token.lineno)  # Registrar la línea donde aparece la variable
+        
+        return assignment_lines
 
-        return assign_lines
-
+def remove_comments(code_line):
+        # Remover todo lo que sigue después de "//"
+        return re.sub(r'//.*', '', code_line)
     
 
 def extract_symbols_from_tree(tree_str):

@@ -1,9 +1,10 @@
 main {
     int hola;
-    float x;  //Colision
+    float x; //Colision
     int x;
     int y;
     int a;
+    double yyy;
     x = 10;
     y = x * 2;
     x = 30.5;

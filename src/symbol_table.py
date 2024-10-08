@@ -12,13 +12,23 @@ class SymbolTable:
         """
         if name in self.table:
             symbol = self.table[name][0]  # Acceder al símbolo (primer diccionario)
-            
+
             # Añadir la línea si no está ya presente
             if str(line) not in symbol['lines']:
                 symbol['lines'].append(str(line))
 
 
     def add_symbol(self, name, var_type, value, loc, line):
+        # Filtrar nodos con nombre "Identifier"
+        if name == "Identifier":
+            print(f"Se ignoró un nodo genérico 'Identifier'.")
+            return  # No hacemos nada si el nombre es "Identifier"
+
+        # Verificar si se está intentando hacer un downcast (float a int)
+        if var_type == "int" and isinstance(value, float):
+            value = "Error de tipo de datos"
+            print(f"Error de tipo de datos: No se puede asignar un valor float a la variable '{name}' de tipo int.")
+
         # Imprimir el valor para verificar qué se está pasando
         print(f"Añadiendo símbolo: nombre={name}, tipo={var_type}, valor={value}, loc={loc}, línea={line}")
         
@@ -39,6 +49,12 @@ class SymbolTable:
             # Actualizamos las líneas donde aparece la variable
             if str(line) not in symbol['lines']:
                 symbol['lines'].append(str(line))
+            
+            # Actualizamos el valor si no hay error de tipo
+            if value != "Error de tipo de datos":
+                symbol['value'] = value
+
+
 
 
 
@@ -109,10 +125,9 @@ def fill_symbol_table(node, symbol_table, assign_lines, loc=None):
             var_name = child.children[0].value
             line = child.line  # Usamos la línea del nodo
 
-            print(f"Declaración de variable '{var_name}' en la línea {line}")
-            
-            if line is not None:
-                # Agregamos la variable a la tabla de símbolos con su tipo y línea de declaración
+            # Solo agregamos la variable si la línea no es None y el nombre es válido
+            if line is not None and var_name != "Identifier":
+                print(f"Declaración de variable '{var_name}' en la línea {line}")
                 symbol_table.add_symbol(var_name, var_type, "", loc, line)
 
         # Asignación de variables del tipo [variable] = algo
@@ -123,11 +138,9 @@ def fill_symbol_table(node, symbol_table, assign_lines, loc=None):
 
             # Recorrer los hijos de Assignment para encontrar el identificador y el valor
             for child_node in child.children:
-                if child_node.name == "Identifier":
+                if child_node.name == "Identifier" and child_node.value != "Identifier":  # Filtrar "Identifier"
                     var_name = child_node.value
                     print(f"Variable identificada en la asignación: {var_name}")
-                elif child_node.name == "Expression":
-                    var_value = evaluate_expression(child_node, symbol_table)
                 elif child_node.name in ["Literal", "Number"]:
                     var_value = child_node.value  # Tomamos el valor directamente del nodo
                     print(f"Valor extraído del nodo: {var_value}")
@@ -135,40 +148,45 @@ def fill_symbol_table(node, symbol_table, assign_lines, loc=None):
             # Verificación del valor antes de actualizar la tabla de símbolos
             print(f"Variable '{var_name}', valor: {var_value}, línea: {line}")
 
-            # Si la variable aparece en `assign_lines`, usar esa línea
-            if var_name in assign_lines:
-                line = assign_lines[var_name]  # Obtener la línea de asignación del análisis léxico
+            # Verificar que la variable esté en la tabla de símbolos
+            if var_name in symbol_table.table:
+                var_type = symbol_table.table[var_name][0]['type']
 
-            print(f"Asignación encontrada en la línea {line} para la variable '{var_name}'.")
+                # **Verificar si el valor es None antes de intentar convertirlo**
+                if var_value is not None:
+                    try:
+                        # Convertir el valor si es un número flotante o entero
+                        var_value_converted = float(var_value) if '.' in str(var_value) else int(var_value)
+                    except ValueError:
+                        var_value_converted = var_value
+                else:
+                    var_value_converted = None
 
-            # Actualizar la tabla de símbolos con la línea de la asignación
+                # Verificar si es un downcast
+                if var_type == "int" and isinstance(var_value_converted, float):
+                    # Si intentamos asignar un float a una variable int, es un error
+                    var_value = "Error de tipo de datos"
+                    print(f"Error: No se puede asignar un float a la variable '{var_name}' de tipo int.")
+
+            # Actualizamos el símbolo en la tabla con el valor (o error) y la línea de asignación
             if var_name is not None:
-                symbol_table.add_usage(var_name, line)
-
-            # Si el nodo de asignación no tiene línea, obtenemos de los hijos
-            if line is None:
-                print(f"Advertencia: Asignación sin línea en el nodo {child}. Intentando obtener la línea desde los hijos.")
-                # Intentamos obtener la línea de alguno de los hijos (como el identificador)
-                for child_node in child.children:
-                    if child_node.line is not None:
-                        line = child_node.line
-                        break
-
-            # Actualizamos el símbolo en la tabla con su valor y la línea de asignación
-            if var_name is not None and var_value is not None and var_name in symbol_table.table:
                 symbol_table.update_symbol(var_name, var_value, line)
 
-        # Uso de variables en expresiones del tipo [variable]
-        elif isinstance(child, AnnotatedNode) and child.name == "Identifier":
+        # Uso de variables en expresiones del tipo [variable], pero filtrando nodos genéricos "Identifier"
+        elif isinstance(child, AnnotatedNode) and child.name == "Identifier" and child.value != "Identifier":
             var_name = child.value
             line = child.line  # Usamos la línea del nodo donde aparece la variable
-            if line is not None:
-                # Añadimos el uso de la variable con su línea
+            if line is not None:  # Solo agregar si la línea no es None
                 symbol_table.add_usage(var_name, line)
                 print(f"Uso de la variable '{var_name}' en la línea {line}")
 
         # Llamada recursiva para procesar los hijos
         fill_symbol_table(child, symbol_table, assign_lines, loc)
+
+
+
+
+
 
 
 def update_variable_lines_in_expression(node, symbol_table, line):

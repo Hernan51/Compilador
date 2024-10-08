@@ -26,10 +26,11 @@ class AnnotatedNode(NodeMixin):
 
 
 class Parser:
-    def __init__(self, tokens: list[Token]):
+    def __init__(self, tokens: list[Token], symbol_table):
         self.tokens = tokens
         self.current_token_index = 0
         self.current_token = self.tokens[self.current_token_index]
+        self.symbol_table = symbol_table  
 
     def eat(self, token_type):
         if self.current_token.type == token_type:
@@ -83,8 +84,12 @@ class Parser:
         self.eat(var_type.upper())
         ids = self.identifier()  # Ya no pasamos el número de línea aquí
         self.eat("SEMICOLON")
-        return AnnotatedNode(name="VariableDeclaration", value=var_type, type="Variable", line=token.lineno, children=ids)
 
+        # **Modificación**: Agregar el argumento faltante 'line' al llamar a add_symbol
+        for id_node in ids:
+            self.symbol_table.add_symbol(id_node.name, var_type, None, loc=0, line=token.lineno)  # Registrar declaración
+
+        return AnnotatedNode(name="VariableDeclaration", value=var_type, type="Variable", line=token.lineno, children=ids)
 
 
     def identifier(self):
@@ -122,8 +127,12 @@ class Parser:
 
     def assignment_or_increment_decrement(self):
         identifier_token = self.current_token.value
-        self.eat("IDENTIFIER")
+        line_number = self.current_token.lineno  # Guardar la línea donde ocurre
 
+        # **Modificación 3**: Registrar el uso de la variable
+        self.symbol_table.add_usage(identifier_token, line_number)  # Registrar uso de la variable
+        self.eat("IDENTIFIER")
+        
         if self.current_token.type == "ASSIGN":
             assign_token = self.current_token
             self.eat("ASSIGN")
