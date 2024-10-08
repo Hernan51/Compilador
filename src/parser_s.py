@@ -12,14 +12,17 @@ class AnnotatedNode(NodeMixin):
             self.children = children
 
     def __str__(self):
+        line_info = f"Line: {self.line}" if self.line is not None else "Line: Unknown"
+        
         if self.value and self.type:
-            return f"{self.name} (Type: {self.type}, Value: {self.value})"
+            return f"{self.name} (Type: {self.type}, Value: {self.value}, {line_info})"
         elif self.value:
-            return f"{self.name} (Value: {self.value})"
+            return f"{self.name} (Value: {self.value}, {line_info})"
         elif self.type:
-            return f"{self.name} (Type: {self.type})"
+            return f"{self.name} (Type: {self.type}, {line_info})"
         else:
-            return f"{self.name}"
+            return f"{self.name} ({line_info})"
+
 
 
 class Parser:

@@ -189,6 +189,9 @@ class MainWindow(QMainWindow):
             return
         editor.copy()
 
+    
+
+
     def compile(self):
         """Compile the current file."""
         loc = 0  # Inicializa el LOC al inicio de la compilación
@@ -197,6 +200,14 @@ class MainWindow(QMainWindow):
             # Realizar análisis léxico
             tkns, errs = get_lexical_analysis(self.current_file)
             set_lexical_analysis_result((tkns, errs))
+            if self.current_file is not None:
+                # Obtener las líneas de código enumeradas
+                code_lines = enumerate_code_lines(self.current_file)
+
+                # Imprimir las líneas de código enumeradas
+                print("Líneas de código:")
+                for line_num, code in code_lines.items():
+                    print(f"Línea {line_num}: {code}")
             
             # Verificar si no hubo errores léxicos
             if errs == []:
@@ -211,21 +222,22 @@ class MainWindow(QMainWindow):
 
                 # Renderizar el árbol sintáctico como una cadena
                 tree_str = parser.render_tree(ast)
-                
-                
+                print(tree_str)
+                print("ast",ast)
                 # Crear la tabla de símbolos
                 symbol_table = SymbolTable()
-                fill_symbol_table(ast, symbol_table)
+                assign_lines = self.extract_assignment_lines(tkns)
+                fill_symbol_table(ast, symbol_table,assign_lines)
 
                 symbols = symbol_table.get_symbols()
-                print(symbols)
-                print("Tabla de símbolos generada:", symbols)
+                #print("symbols",symbols)
+                #print("Tabla de símbolos generada:", symbols)
                 # Mostrar la tabla de símbolos en el panel
                 set_hash_table(symbols)
 
                 
                 # Mostrar el árbol sintáctico en consola (para depuración)
-                print(tree_str)
+                #print(tree_str)
 
                 # Indicar que la compilación fue exitosa
                 self.statusBar().showMessage("Compilation successful", 2000)
@@ -355,6 +367,24 @@ class MainWindow(QMainWindow):
         body_frame.setLayout(body)
 
         self.setCentralWidget(body_frame)
+    
+    def extract_assignment_lines(self, tokens):
+        """
+        Extrae las líneas donde ocurren las asignaciones (ASSIGN) a partir del análisis léxico.
+        """
+        assign_lines = {}
+        current_var = None
+
+        for token in tokens:
+            if token.type == "IDENTIFIER":
+                # Almacenar el identificador actual para asociarlo con la siguiente asignación
+                current_var = token.value
+            elif token.type == "ASSIGN" and current_var is not None:
+                # Guardar la línea de la asignación para la variable actual
+                assign_lines[current_var] = token.lineno
+                current_var = None  # Reiniciar la variable actual
+
+        return assign_lines
 
     
 
@@ -393,6 +423,7 @@ def extract_symbols_from_tree(tree_str):
             match_assign = assignment_pattern.search(line)
             if match_assign:
                 current_assignment = True
+                
                 continue
 
             # Detectar un valor literal en una asignación
@@ -404,6 +435,28 @@ def extract_symbols_from_tree(tree_str):
                 current_assignment = False  # Terminar la asignación
 
         return symbol_table
+
+def enumerate_code_lines(file_path):
+        """
+        Lee un archivo y devuelve un diccionario con el número de línea como clave y
+        la línea de código correspondiente como valor.
+        
+        Args:
+        - file_path: La ruta al archivo de código fuente (self.current_file)
+        
+        Returns:
+        - Un diccionario con el número de línea como clave y el contenido de la línea como valor.
+        """
+        code_lines = {}
+        
+        try:
+            with open(file_path, 'r') as f:
+                for line_number, line in enumerate(f, start=1):
+                    code_lines[line_number] = line.strip()
+        except FileNotFoundError:
+            print(f"Error: No se encontró el archivo {file_path}")
+        
+        return code_lines
     
 if __name__ == "__main__":
     app = QApplication([])

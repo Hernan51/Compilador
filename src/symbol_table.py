@@ -6,130 +6,208 @@ class SymbolTable:
         self.table = {}
         self.loc_counter = 0  # Contador de LOC para asignar a cada variable
 
+    def add_usage(self, name, line):
+        """
+        Añadir la línea de uso de la variable a la tabla de símbolos.
+        """
+        if name in self.table:
+            symbol = self.table[name][0]  # Acceder al símbolo (primer diccionario)
+            
+            # Añadir la línea si no está ya presente
+            if str(line) not in symbol['lines']:
+                symbol['lines'].append(str(line))
+
+
     def add_symbol(self, name, var_type, value, loc, line):
-        # Si la variable no está en la tabla, la añadimos como una lista de diccionarios
+        # Imprimir el valor para verificar qué se está pasando
+        print(f"Añadiendo símbolo: nombre={name}, tipo={var_type}, valor={value}, loc={loc}, línea={line}")
+        
+        # Si la variable no está en la tabla, la añadimos
         if name not in self.table:
             loc = self.loc_counter  # Asignar LOC único
-            self.table[name] = [{"type": var_type, "value": value, "loc": loc, "lines": [line]}]
+            self.table[name] = [{
+                "type": var_type, 
+                "value": value,  # Aquí asignamos el valor que viene del AST
+                "loc": loc, 
+                "lines": [str(line)]  # Aquí es donde se registra la línea
+            }]
             self.loc_counter += 1  # Incrementar LOC
         else:
-            # Si ya existe la variable, verificar si tiene el mismo tipo
-            for symbol in self.table[name]:
-                if symbol['type'] == var_type:
-                    # Actualizamos el valor y las líneas
-                    symbol['value'] = value
-                    if line is not None and line not in symbol['lines']:
-                        symbol['lines'].append(line)
-                    return
-            # Si no existe un símbolo con el mismo tipo, agregamos una nueva entrada (colisión)
-            loc = self.loc_counter
-            self.table[name].append({"type": var_type, "value": value, "loc": loc, "lines": [line]})
-            self.loc_counter += 1  # Incrementar LOC para la nueva variable
+            # Si ya existe la variable, actualizamos sus líneas
+            symbol = self.table[name][0]
 
+            # Actualizamos las líneas donde aparece la variable
+            if str(line) not in symbol['lines']:
+                symbol['lines'].append(str(line))
+
+
+
+    
     def get_symbols(self):
         # Devolver toda la tabla de símbolos
         return self.table
 
-
-
-
     def update_symbol(self, name, value, line):
         if name in self.table:
-            self.table[name]["value"] = value
-            if line is not None and line not in self.table[name]["lines"]:
-                self.table[name]["lines"].append(line)
+            symbol = self.table[name][0]
+            print(f"Actualizando valor de '{name}' a {value} en la línea {line}")
+            
+            # Actualizar el valor del símbolo si no es None
+            if value is not None:
+                symbol['value'] = value  # Actualizamos el valor con lo que obtuvimos del AST
+            
+            # Agregar la línea si no está ya registrada
+            if line is not None and str(line) not in symbol['lines']:
+                symbol['lines'].append(str(line))
+        else:
+            print(f"Error: la variable '{name}' no se encuentra en la tabla de símbolos.")
+        
+        # Imprimir el estado de la tabla después de actualizar
+        print(f"Tabla actualizada: {self.table}")
 
 
-   
-    
+
+
     def get_symbol(self, name):
         # Devolver un solo símbolo dado su nombre
         return self.table.get(name, None)
 
     def is_declared(self, name):
+        # Verificar si un símbolo está declarado
         return name in self.table
 
     def is_initialized(self, name):
         return self.table.get(name, {}).get("initialized", False)
 
-def display(self):
-    """
-    Función para mostrar la tabla de símbolos sin mostrar None.
-    """
-    print(f"{'Variable':<10}{'Type':<10}{'Value':<10}{'LOC':<10}{'Lines':<20}{'Scope':<10}{'Const':<10}{'Init':<10}")
-    
-    for name, info in self.table.items():
-        # Filtrar las líneas que no sean None y convertirlas a string
-        lines = [str(line) for line in info["lines"] if line is not None]
-        lines_str = ', '.join(lines) if lines else ''  # Evitar que salga None
+    def display(self):
+        """
+        Función para mostrar la tabla de símbolos sin mostrar None.
+        """
+        print(f"{'Variable':<10}{'Type':<10}{'Value':<10}{'LOC':<10}{'Lines':<20}{'Scope':<10}{'Const':<10}{'Init':<10}")
         
-        # Mostrar la fila de la tabla con la lista de líneas correcta
-        print(f"{name:<10}{info['type']:<10}{info['value']:<10}{info['loc']:<10}{lines_str:<20}{info.get('scope', ''):<10}{info.get('is_const', ''):<10}{info.get('initialized', ''):<10}")
+        for name, symbols in self.table.items():
+            # Iteramos por cada símbolo en la lista (por si hay colisiones)
+            for info in symbols:
+                # Filtrar las líneas que no sean None y convertirlas a string
+                lines = [str(line) for line in info["lines"] if line is not None]
+                lines_str = ', '.join(lines) if lines else ''  # Evitar que salga None
+                
+                # Mostrar la fila de la tabla con la lista de líneas correcta
+                print(f"{name:<10}{info['type']:<10}{info['value']:<10}{info['loc']:<10}{lines_str:<20}{info.get('scope', ''):<10}{info.get('is_const', ''):<10}{info.get('initialized', ''):<10}")
 
-
-def fill_symbol_table(node, symbol_table, loc=None):
+# Función para llenar la tabla de símbolos a partir del árbol anotado
+def fill_symbol_table(node, symbol_table, assign_lines, loc=None):
     if node is None:
         return
-    
+
     # Recorrer los hijos del nodo del árbol
     for child in node.children:
+        
+        # Declaración de variables
         if isinstance(child, AnnotatedNode) and child.name == "VariableDeclaration":
-            # Acceder a los hijos de VariableDeclaration
-            var_type = child.value  # Aquí capturamos el tipo de la variable
-            var_name = child.children[0].value  # Capturamos el nombre de la variable
-            line = child.line  # Número de línea donde se declaró la variable
+            var_type = child.value
+            var_name = child.children[0].value
+            line = child.line  # Usamos la línea del nodo
 
-            # Añadir la variable a la tabla de símbolos usando encadenamiento
-            symbol_table.add_symbol(var_name, var_type, None, loc, line)
+            print(f"Declaración de variable '{var_name}' en la línea {line}")
+            
+            if line is not None:
+                # Agregamos la variable a la tabla de símbolos con su tipo y línea de declaración
+                symbol_table.add_symbol(var_name, var_type, "", loc, line)
 
+        # Asignación de variables del tipo [variable] = algo
         elif isinstance(child, AnnotatedNode) and child.name == "Assignment":
-            # Procesar una asignación
             var_name = None
             var_value = None
-            line = child.line  # Línea donde ocurre la asignación
+            line = child.line  # Usamos la línea del nodo de asignación
 
             # Recorrer los hijos de Assignment para encontrar el identificador y el valor
             for child_node in child.children:
                 if child_node.name == "Identifier":
-                    var_name = child_node.value  # Nombre de la variable a la izquierda de la asignación
-                elif child_node.name == "Literal" or child_node.name == "Number":
-                    var_value = child_node.value  # Valor literal o numérico asignado
+                    var_name = child_node.value
+                    print(f"Variable identificada en la asignación: {var_name}")
+                elif child_node.name == "Expression":
+                    var_value = evaluate_expression(child_node, symbol_table)
+                elif child_node.name in ["Literal", "Number"]:
+                    var_value = child_node.value  # Tomamos el valor directamente del nodo
+                    print(f"Valor extraído del nodo: {var_value}")
 
-            if var_name is not None and var_name in symbol_table.table:
-                # Actualizar el valor de la variable en la tabla
-                for symbol in symbol_table.table[var_name]:
-                    symbol['value'] = var_value
-                    if line not in symbol['lines']:
-                        symbol['lines'].append(line)
+            # Verificación del valor antes de actualizar la tabla de símbolos
+            print(f"Variable '{var_name}', valor: {var_value}, línea: {line}")
+
+            # Si la variable aparece en `assign_lines`, usar esa línea
+            if var_name in assign_lines:
+                line = assign_lines[var_name]  # Obtener la línea de asignación del análisis léxico
+
+            print(f"Asignación encontrada en la línea {line} para la variable '{var_name}'.")
+
+            # Actualizar la tabla de símbolos con la línea de la asignación
+            if var_name is not None:
+                symbol_table.add_usage(var_name, line)
+
+            # Si el nodo de asignación no tiene línea, obtenemos de los hijos
+            if line is None:
+                print(f"Advertencia: Asignación sin línea en el nodo {child}. Intentando obtener la línea desde los hijos.")
+                # Intentamos obtener la línea de alguno de los hijos (como el identificador)
+                for child_node in child.children:
+                    if child_node.line is not None:
+                        line = child_node.line
+                        break
+
+            # Actualizamos el símbolo en la tabla con su valor y la línea de asignación
+            if var_name is not None and var_value is not None and var_name in symbol_table.table:
+                symbol_table.update_symbol(var_name, var_value, line)
+
+        # Uso de variables en expresiones del tipo [variable]
+        elif isinstance(child, AnnotatedNode) and child.name == "Identifier":
+            var_name = child.value
+            line = child.line  # Usamos la línea del nodo donde aparece la variable
+            if line is not None:
+                # Añadimos el uso de la variable con su línea
+                symbol_table.add_usage(var_name, line)
+                print(f"Uso de la variable '{var_name}' en la línea {line}")
 
         # Llamada recursiva para procesar los hijos
-        fill_symbol_table(child, symbol_table, loc)
+        fill_symbol_table(child, symbol_table, assign_lines, loc)
+
+
+def update_variable_lines_in_expression(node, symbol_table, line):
+    """
+    Recorre una expresión para identificar todas las variables usadas
+    y registra las líneas correspondientes.
+    """
+    if node is None:
+        return
+
+    if node.name == "Identifier":
+        var_name = node.value
+        # Registrar que la variable fue usada en la línea de la expresión
+        symbol_table.add_usage(var_name, line)
+
+    # Procesar recursivamente las expresiones
+    for child in node.children:
+        update_variable_lines_in_expression(child, symbol_table, line)
 
 
 
 
-
+# Función para evaluar expresiones aritméticas
 def evaluate_expression(node, symbol_table):
-    """
-    Evalúa una expresión a partir del nodo del árbol y la tabla de símbolos.
-    """
     if node.name == "Number":
-        return node.value  # Si es un número, regresa el valor directamente
+        return node.value  # Si es un número, devuelve el valor directamente
     elif node.name == "Identifier":
         var_name = node.value
-        if var_name in symbol_table.get_symbols():
-            return symbol_table.get_symbol(var_name)["value"]  # Regresa el valor de la variable
-    elif node.name == "TIMES":
-        # Evaluar la operación de multiplicación (TIMES)
+        symbol = symbol_table.get_symbol(var_name)
+        if symbol:
+            return symbol[0]['value']  # Retorna el valor almacenado en la tabla de símbolos
+        else:
+            print(f"Error: variable '{var_name}' no tiene valor asignado.")
+            return None
+    elif node.name == "TIMES":  # Multiplicación
         left_value = evaluate_expression(node.children[0], symbol_table)
         right_value = evaluate_expression(node.children[1], symbol_table)
         return float(left_value) * float(right_value)
-    # Puedes añadir más operadores aquí como PLUS, MINUS, DIVIDE, etc.
-
-
-
-
-
+    # Puedes añadir más operadores aquí (PLUS, MINUS, DIVIDE, etc.)
 
 
 

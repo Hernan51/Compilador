@@ -176,11 +176,10 @@ def set_semantic_analysis_result(ast):
             for child in node.children:
                 child_item = QTreeWidgetItem(parent_item, [child.name])
 
-                # Si el nodo tiene un tipo y valor, los mostramos como hijos
-                if child.type is not None and child.value is not None:
-                    # Añadir el tipo como nodo hijo
+                # Verificar si el nodo tiene un tipo y valor antes de añadirlos
+                if hasattr(child, 'type') and child.type is not None:
                     type_item = QTreeWidgetItem(child_item, [f"Type: {child.type}"])
-                    # Añadir el valor como nodo hijo
+                if hasattr(child, 'value') and child.value is not None:
                     value_item = QTreeWidgetItem(child_item, [f"Value: {child.value}"])
 
                 # Llamada recursiva para agregar los nodos hijos de este nodo
@@ -194,10 +193,12 @@ def set_semantic_analysis_result(ast):
     else:
         print("Error: 'semantic' panel not initialized.")
 
+
 def set_hash_table(symbols):
     """
     Actualiza la UI con el contenido de la tabla de símbolos.
     """
+    # Calcular el número de filas
     hash_table[0].setRowCount(sum(len(entry) for entry in symbols.values()))
     
     idx = 0  # Índice de fila en la tabla
@@ -205,19 +206,26 @@ def set_hash_table(symbols):
     # Iterar sobre los símbolos y sus posibles colisiones
     for var_name, symbol_list in symbols.items():
         for symbol in symbol_list:  # symbol_list es la lista de colisiones
+            # Verificar si el símbolo es un diccionario
+            if not isinstance(symbol, dict):
+                raise TypeError(f"Se esperaba un diccionario en 'symbol', pero se obtuvo {type(symbol).__name__}")
+
+            # Verificar que el símbolo tiene los campos requeridos
+            if 'type' not in symbol or 'value' not in symbol or 'loc' not in symbol or 'lines' not in symbol:
+                raise KeyError(f"Faltan campos en el símbolo '{var_name}'. Se esperaban 'type', 'value', 'loc', y 'lines'.")
+
             # variable name
             hash_table[0].setItem(idx, 0, QTableWidgetItem(var_name))
-
-            # Accede a los campos 'type', 'value', 'loc', y 'lines'
             hash_table[0].setItem(idx, 1, QTableWidgetItem(symbol["type"]))
             hash_table[0].setItem(idx, 2, QTableWidgetItem(str(symbol["value"])))
             hash_table[0].setItem(idx, 3, QTableWidgetItem(str(symbol["loc"])))
 
-            # Solo agregar líneas que no sean None
+            # Validar y agregar las líneas
             valid_lines = [str(line) for line in symbol["lines"] if line is not None]
             hash_table[0].setItem(idx, 4, QTableWidgetItem(", ".join(valid_lines)))
             
             idx += 1  # Incrementar el índice de fila
+
 
 
 
