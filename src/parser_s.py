@@ -66,13 +66,14 @@ class Parser:
 
     def declaration_list(self):
         declarations = []
-        while self.current_token and self.current_token.type in [
-            "INT",
-            "DOUBLE",
-            "FLOAT",
-        ]:
-            declarations.append(self.declaration_statement())
+        while self.current_token.type in ['INT', 'FLOAT']:  # Agregar otros tipos si es necesario
+            if self.current_token.type == 'INT':
+                declarations.extend(self.variable_declaration('int'))
+            elif self.current_token.type == 'FLOAT':
+                declarations.extend(self.variable_declaration('float'))
+
         return declarations
+
 
     def declaration_statement(self):
         if self.current_token.type == "INT":
@@ -89,12 +90,12 @@ class Parser:
         Procesa una declaración de variables como int x, y, z;
         y las añade a la tabla de símbolos de manera individual.
         """
-        # Adaptar la espera según el tipo de variable (INT, FLOAT, etc.)
         if var_type == 'int':
             self.eat('INT')
         elif var_type == 'float':
             self.eat('FLOAT')
-        # Agrega más tipos si es necesario, por ejemplo, 'char', 'double', etc.
+
+        declaration_nodes = []
 
         # Mientras haya variables separadas por comas
         while self.current_token.type == 'IDENTIFIER':
@@ -104,6 +105,14 @@ class Parser:
             # Añadir cada variable por separado a la tabla de símbolos
             self.symbol_table.add_symbol(var_name, var_type, None, None, self.current_token.lineno)
 
+            # Crear un nodo para la declaración de la variable
+            declaration_node = AnnotatedNode(
+                name="Declaration",
+                value=var_name,
+                type=var_type
+            )
+            declaration_nodes.append(declaration_node)
+
             # Si hay una coma, comemos la coma y seguimos con la siguiente variable
             if self.current_token.type == 'COMMA':
                 self.eat('COMMA')
@@ -112,6 +121,8 @@ class Parser:
 
         # Consumir el punto y coma que termina la declaración
         self.eat('SEMICOLON')
+
+        return declaration_nodes
 
 
 

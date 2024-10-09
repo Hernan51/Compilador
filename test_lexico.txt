@@ -1,7 +1,7 @@
 main {
-    int  y, z;
-    float x;
+    int  x,y, z;
     float a, b, c;
+    float x;
     suma = 45;
     x = 32;
     x = 23.1;
@@ -13,6 +13,7 @@ main {
     y = 5 + 3 - 2 * 4 / 7 - 9;
     z = 8 / 2 + 15 * 4;
     y = 14.54;
+    
 
     if (2 > 3) {
         y = a + 3;

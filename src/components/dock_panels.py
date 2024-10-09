@@ -68,6 +68,13 @@ def set_up_dock_panels(window: QMainWindow):
     hash_table_widget = QTableWidget()  # Cambia de QTextBrowser a QTableWidget
     hash_table_widget.setColumnCount(5)  # Define el número de columnas
     hash_table_widget.setHorizontalHeaderLabels(["Variable", "Type", "Value", "LOC", "Lines"])  # Etiquetas de las columnas
+        # Ajustar el ancho de cada columna de forma individual
+    hash_table_widget.setColumnWidth(0, 150)  # Ancho para la columna "Variable"
+    hash_table_widget.setColumnWidth(1, 100)  # Ancho para la columna "Type"
+    hash_table_widget.setColumnWidth(2, 140)  # Ancho para la columna "Value"
+    hash_table_widget.setColumnWidth(3, 80)   # Ancho para la columna "LOC"
+    hash_table_widget.setColumnWidth(4, 250)  # Ancho para la columna "Lines"
+
     hash_table_widget.setStyleSheet(open("./src/css/style.css", encoding="utf-8").read())
     hash_table_panel.setWidget(hash_table_widget)
     window.addDockWidget(Qt.BottomDockWidgetArea, hash_table_panel)

@@ -4,7 +4,7 @@ main {
     int x;
     int y;
     int a;
-    double yyy;
+    float yyy;
     x = 10;
     y = x * 2;
     x = 30.5;

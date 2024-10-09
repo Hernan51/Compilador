@@ -19,11 +19,35 @@ class SymbolTable:
 
 
     def add_symbol(self, name, var_type, value, loc, line):
-        # Dividir los nombres de las variables si hay varias en una misma declaración
-        variable_names = [var.strip() for var in name.split(',')]
-        for variable_name in variable_names:
-            # Procesar cada variable individualmente
-            self._add_single_symbol(variable_name, var_type, value, loc, line)
+        # Filtrar nodos con nombre "Identifier"
+        if name == "Identifier":
+            print(f"Se ignoró un nodo genérico 'Identifier'.")
+            return  # No hacemos nada si el nombre es "Identifier"
+
+        # Definir un orden de prioridad de tipos
+        type_priority = {"int": 1, "float": 2}  # Puedes agregar más tipos con sus prioridades.
+
+        # Verificar si la variable ya está en la tabla
+        if name in self.table:
+            existing_type = self.table[name][0]["type"]
+            existing_priority = type_priority.get(existing_type, 0)
+            new_priority = type_priority.get(var_type, 0)
+
+            # Solo actualiza el tipo si el nuevo es de mayor prioridad
+            if new_priority > existing_priority:
+                print(f"Actualizando tipo de '{name}' de {existing_type} a {var_type}")
+                self.table[name][0]["type"] = var_type
+        else:
+            # Si la variable no está en la tabla, la añadimos
+            loc = self.loc_counter  # Asignar LOC único
+            self.table[name] = [{
+                "type": var_type,
+                "value": value,
+                "loc": loc,
+                "lines": [str(line)]
+            }]
+            self.loc_counter += 1  # Incrementar LOC
+
 
     def _add_single_symbol(self, name, var_type, value, loc, line):
         # Filtrar nodos con nombre "Identifier"
