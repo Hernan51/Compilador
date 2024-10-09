@@ -52,12 +52,17 @@ class Parser:
         declarations = self.declaration_list()
         statements = self.sentence_list()
         self.eat("RBRACE")
+        
+        # Filtrar cualquier None de la lista de children antes de crear el nodo
+        valid_children = [child for child in declarations + statements if child is not None]
+        
         return AnnotatedNode(
             name="Program",
             value=token.value,
             type="Main Program",
-            children=declarations + statements,
+            children=valid_children,
         )
+
 
     def declaration_list(self):
         declarations = []
@@ -80,16 +85,36 @@ class Parser:
             return self.sentence()
 
     def variable_declaration(self, var_type):
-        token = self.current_token  # El token tiene la línea
-        self.eat(var_type.upper())
-        ids = self.identifier()  # Ya no pasamos el número de línea aquí
-        self.eat("SEMICOLON")
+        """
+        Procesa una declaración de variables como int x, y, z;
+        y las añade a la tabla de símbolos de manera individual.
+        """
+        # Adaptar la espera según el tipo de variable (INT, FLOAT, etc.)
+        if var_type == 'int':
+            self.eat('INT')
+        elif var_type == 'float':
+            self.eat('FLOAT')
+        # Agrega más tipos si es necesario, por ejemplo, 'char', 'double', etc.
 
-        # **Modificación**: Agregar el argumento faltante 'line' al llamar a add_symbol
-        for id_node in ids:
-            self.symbol_table.add_symbol(id_node.name, var_type, None, loc=0, line=token.lineno)  # Registrar declaración
+        # Mientras haya variables separadas por comas
+        while self.current_token.type == 'IDENTIFIER':
+            var_name = self.current_token.value
+            self.eat('IDENTIFIER')
 
-        return AnnotatedNode(name="VariableDeclaration", value=var_type, type="Variable", line=token.lineno, children=ids)
+            # Añadir cada variable por separado a la tabla de símbolos
+            self.symbol_table.add_symbol(var_name, var_type, None, None, self.current_token.lineno)
+
+            # Si hay una coma, comemos la coma y seguimos con la siguiente variable
+            if self.current_token.type == 'COMMA':
+                self.eat('COMMA')
+            else:
+                break
+
+        # Consumir el punto y coma que termina la declaración
+        self.eat('SEMICOLON')
+
+
+
 
 
     def identifier(self):

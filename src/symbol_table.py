@@ -19,6 +19,13 @@ class SymbolTable:
 
 
     def add_symbol(self, name, var_type, value, loc, line):
+        # Dividir los nombres de las variables si hay varias en una misma declaración
+        variable_names = [var.strip() for var in name.split(',')]
+        for variable_name in variable_names:
+            # Procesar cada variable individualmente
+            self._add_single_symbol(variable_name, var_type, value, loc, line)
+
+    def _add_single_symbol(self, name, var_type, value, loc, line):
         # Filtrar nodos con nombre "Identifier"
         if name == "Identifier":
             print(f"Se ignoró un nodo genérico 'Identifier'.")
@@ -31,14 +38,14 @@ class SymbolTable:
 
         # Imprimir el valor para verificar qué se está pasando
         print(f"Añadiendo símbolo: nombre={name}, tipo={var_type}, valor={value}, loc={loc}, línea={line}")
-        
+
         # Si la variable no está en la tabla, la añadimos
         if name not in self.table:
             loc = self.loc_counter  # Asignar LOC único
             self.table[name] = [{
-                "type": var_type, 
-                "value": value,  # Aquí asignamos el valor que viene del AST
-                "loc": loc, 
+                "type": var_type,
+                "value": value,
+                "loc": loc,
                 "lines": [str(line)]  # Aquí es donde se registra la línea
             }]
             self.loc_counter += 1  # Incrementar LOC
@@ -49,10 +56,6 @@ class SymbolTable:
             # Actualizamos las líneas donde aparece la variable
             if str(line) not in symbol['lines']:
                 symbol['lines'].append(str(line))
-            
-            # Actualizamos el valor si no hay error de tipo
-            if value != "Error de tipo de datos":
-                symbol['value'] = value
 
 
 
