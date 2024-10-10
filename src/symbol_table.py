@@ -6,6 +6,30 @@ class SymbolTable:
         self.table = {}
         self.loc_counter = 0  # Contador de LOC para asignar a cada variable
 
+    
+    def add_variable(self, name, type, value=None, line=None):
+        """
+        Adds a variable to the symbol table, updating its value if it already exists.
+        """
+        if name in self.table:
+            # Update the type to the most precise if necessary.
+            current_type = self.table[name]['type']
+            if type == 'float' or (type == 'int' and current_type == 'int'):
+                self.table[name]['type'] = type
+            
+            # Update the value and add the line of usage.
+            self.table[name]['value'] = value
+            if line:
+                self.table[name]['lines'].append(line)
+        else:
+            # Create new entry for the variable.
+            self.table[name] = {
+                'type': type,
+                'value': value,
+                'lines': [line] if line else []
+            }
+
+
     def add_usage(self, name, line):
         """
         Añadir la línea de uso de la variable a la tabla de símbolos.
@@ -48,6 +72,8 @@ class SymbolTable:
             }]
             self.loc_counter += 1  # Incrementar LOC
 
+    
+
 
     def _add_single_symbol(self, name, var_type, value, loc, line):
         # Filtrar nodos con nombre "Identifier"
@@ -82,7 +108,10 @@ class SymbolTable:
                 symbol['lines'].append(str(line))
 
 
-
+    def update_value(self, name, value):
+        if name in self.table:
+            self.table[name][0]['value'] = value
+            print(f"DEBUG: Updated value of '{name}' to {value} in the symbol table.")
 
 
     
@@ -253,6 +282,7 @@ def evaluate_expression(node, symbol_table):
         right_value = evaluate_expression(node.children[1], symbol_table)
         return float(left_value) * float(right_value)
     # Puedes añadir más operadores aquí (PLUS, MINUS, DIVIDE, etc.)
+
 
 
 

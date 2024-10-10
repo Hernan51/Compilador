@@ -181,13 +181,24 @@ def set_semantic_analysis_result(ast):
         def add_tree_items(parent_item, node):
             # Crear un nodo hijo para cada hijo del nodo actual
             for child in node.children:
-                child_item = QTreeWidgetItem(parent_item, [child.name])
-
+                # Verificar si el nodo es un identificador dentro de una operación aritmética
+                if child.name == "Identifier" and child.parent and child.parent.type == "Arithmetic":
+                    # Si es un identificador en una operación aritmética, usar su valor.
+                    display_value = str(child.value) if child.value is not None else child.name
+                    child_item = QTreeWidgetItem(parent_item, [f"Value: {display_value}"])
+                else:
+                    # De lo contrario, mostrar el nombre del nodo normalmente.
+                    child_item = QTreeWidgetItem(parent_item, [child.name])
+                
                 # Verificar si el nodo tiene un tipo y valor antes de añadirlos
                 if hasattr(child, 'type') and child.type is not None:
-                    type_item = QTreeWidgetItem(child_item, [f"Type: {child.type}"])
+                    QTreeWidgetItem(child_item, [f"Type: {child.type}"])
                 if hasattr(child, 'value') and child.value is not None:
-                    value_item = QTreeWidgetItem(child_item, [f"Value: {child.value}"])
+                    QTreeWidgetItem(child_item, [f"Value: {child.value}"])
+                
+                # Verificar si el nodo tiene un resultado y mostrarlo
+                if hasattr(child, 'result') and child.result is not None:
+                    QTreeWidgetItem(child_item, [f"Result: {child.result}"])
 
                 # Llamada recursiva para agregar los nodos hijos de este nodo
                 add_tree_items(child_item, child)
@@ -201,9 +212,11 @@ def set_semantic_analysis_result(ast):
         print("Error: 'semantic' panel not initialized.")
 
 
+symbol_values = {}
+
 def set_hash_table(symbols):
     """
-    Actualiza la UI con el contenido de la tabla de símbolos.
+    Actualiza la UI con el contenido de la tabla de símbolos y guarda los valores de las variables.
     """
     # Calcular el número de filas
     hash_table[0].setRowCount(sum(len(entry) for entry in symbols.values()))
@@ -221,6 +234,9 @@ def set_hash_table(symbols):
             if 'type' not in symbol or 'value' not in symbol or 'loc' not in symbol or 'lines' not in symbol:
                 raise KeyError(f"Faltan campos en el símbolo '{var_name}'. Se esperaban 'type', 'value', 'loc', y 'lines'.")
 
+            # Guardar el valor de la variable en el diccionario global
+            symbol_values[var_name] = symbol["value"]
+
             # variable name
             hash_table[0].setItem(idx, 0, QTableWidgetItem(var_name))
             hash_table[0].setItem(idx, 1, QTableWidgetItem(symbol["type"]))
@@ -232,21 +248,67 @@ def set_hash_table(symbols):
             hash_table[0].setItem(idx, 4, QTableWidgetItem(", ".join(valid_lines)))
             
             idx += 1  # Incrementar el índice de fila
-
-
-
-
-
-
-
+    
+def evaluate_expression(self, node, symbol_table):
+    """
+    Recursively evaluates an expression node using the values from the symbol table.
+    """
+    if node.name == 'Number':
+        value = float(node.value) if '.' in node.value else int(node.value)
+        print(f"DEBUG: Evaluating Number: {node.value} -> {value}")
+        return value
+    
+    if node.name == 'Identifier':
+        # Retrieve the variable's value from the symbol table.
+        var_info = symbol_table.table.get(node.value)
+        if var_info and var_info[0]['value'] is not None:
+            # Reemplazar el nombre de la variable por su valor
+            value = float(var_info[0]['value']) if '.' in str(var_info[0]['value']) else int(var_info[0]['value'])
+            print(f"DEBUG: Evaluating Identifier '{node.value}' -> {value}")
+            # Cambiar el valor del nodo para que se muestre el valor en el árbol.
+            node.value = value
+            return value
+        else:
+            print(f"DEBUG: Error: Variable '{node.value}' used before assignment.")
+            raise ValueError(f"Variable '{node.value}' used before assignment.")
+    
+    # Evaluate arithmetic nodes.
+    if node.name in ['PLUS', 'MINUS', 'TIMES', 'DIVIDE']:
+        left_val = self.evaluate_expression(node.children[0], symbol_table)
+        right_val = self.evaluate_expression(node.children[1], symbol_table)
+        
+        # Print values before performing the operation
+        print(f"DEBUG: {node.name} operation with left: {left_val}, right: {right_val}")
+        
+        # Perform the operation and store the result in the node.
+        if node.name == 'PLUS':
+            result = left_val + right_val
+        elif node.name == 'MINUS':
+            result = left_val - right_val
+        elif node.name == 'TIMES':
+            result = left_val * right_val
+        elif node.name == 'DIVIDE':
+            if right_val == 0:
+                print("DEBUG: Error: Division by zero.")
+                raise ZeroDivisionError("Division by zero.")
+            result = left_val / right_val
+        
+        print(f"DEBUG: Result of {node.name}: {result}")
+        node.result = result
+        return result
+    
+    return None
 
 
 
 
 
 def add_tree_item(parent, node):
-    """Add a tree item to the tree widget"""
-    item = QTreeWidgetItem(parent, [node.value])
+    # Convertir el valor del nodo a cadena para evitar el error.
+    item_value = str(node.value) if node.value is not None else "None"
+    item = QTreeWidgetItem(parent, [item_value])
+    
+    # Continuar con la creación de los nodos hijos si los hay.
     for child in node.children:
         add_tree_item(item, child)
-    return item
+

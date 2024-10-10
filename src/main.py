@@ -214,6 +214,8 @@ class MainWindow(QMainWindow):
                 # Realizar análisis sintáctico y guardar el resultado en 'ast'
                 parser = Parser(tkns,symbol_table)
                 ast = parser.parse()
+
+                #evaluate_ast(ast)
                 
                 # Mostrar el resultado sintáctico en el panel
                 set_syntactic_analysis_result(ast)
@@ -228,7 +230,7 @@ class MainWindow(QMainWindow):
                 for line_num, code in code_lines.items():
                     # Remover los comentarios antes de buscar las variables
                     code_without_comments = remove_comments(code)
-                    
+            
                     # Imprimir la línea de código sin comentarios
                     print(f"Línea {line_num}: {code_without_comments}")
                     
@@ -240,8 +242,7 @@ class MainWindow(QMainWindow):
 
                 # Renderizar el árbol sintáctico como una cadena
                 tree_str = parser.render_tree(ast)
-                print(tree_str)
-                print("ast",ast)
+                print("tree_str",tree_str)
                 # Crear la tabla de símbolos
                 
 
@@ -269,7 +270,7 @@ class MainWindow(QMainWindow):
             tree_str += "%s%s\n" % (pre, node)
         return tree_str
     
-    
+
 
 
     def close_tab(self, index):
@@ -399,55 +400,73 @@ class MainWindow(QMainWindow):
 def remove_comments(code_line):
         # Remover todo lo que sigue después de "//"
         return re.sub(r'//.*', '', code_line)
-    
+
+
+
+
+import re
 
 def extract_symbols_from_tree(tree_str):
-        """
-        Procesa el tree_str para extraer los símbolos (variables, tipos, valores).
-        """
-        symbol_table = {}
+    """
+    Procesa el tree_str para extraer los símbolos (variables, tipos, valores, resultados).
+    """
+    symbol_table = {}
 
-        # Expresiones regulares para capturar los diferentes elementos del árbol
-        variable_decl_pattern = re.compile(r'VariableDeclaration \(Type: Variable, Value: (\w+)\)')
-        identifier_pattern = re.compile(r'Identifier \(Type: Variable, Value: (\w+)\)')
-        assignment_pattern = re.compile(r'Assignment \(Type: Assignment, Value: =\)')
-        number_pattern = re.compile(r'Number \(Type: Literal, Value: ([\d\.]+)\)')
+    # Expresiones regulares para capturar los diferentes elementos del árbol
+    variable_decl_pattern = re.compile(r'Declaration \(Type: (\w+), Value: (\w+),')
+    identifier_pattern = re.compile(r'Identifier \(Type: Variable, Value: (\w+)\)')
+    assignment_pattern = re.compile(r'Assignment \(Type: Assignment, Value: =\)')
+    number_pattern = re.compile(r'Number \(Type: Literal, Value: ([\d\.]+)\)')
+    result_pattern = re.compile(r'(TIMES|PLUS|MINUS|DIVIDE) \(Type: Arithmetic, Value: [\+\-\*/], Result: ([\d\.]+),')
+
+    lines = tree_str.split('\n')  # Dividir el tree_str en líneas
+
+    current_type = None
+    current_assignment = False
+    last_var = None
+    
+    for line in lines:
+        # Detectar una declaración de variable
+        match_decl = variable_decl_pattern.search(line)
+        if match_decl:
+            current_type, var_name = match_decl.groups()
+            if var_name not in symbol_table:
+                symbol_table[var_name] = {'type': current_type, 'value': None, 'loc': len(symbol_table), 'lines': []}
+            continue
         
-        lines = tree_str.split('\n')  # Dividir el tree_str en líneas
-
-        current_type = None
-        current_assignment = None
+        # Detectar un identificador
+        match_id = identifier_pattern.search(line)
+        if match_id:
+            var_name = match_id.group(1)
+            last_var = var_name  # Guardar el último identificador encontrado
+            if var_name not in symbol_table:
+                symbol_table[var_name] = {'type': current_type, 'value': None, 'loc': len(symbol_table), 'lines': []}
         
-        for line in lines:
-            # Detectar una declaración de variable
-            match_decl = variable_decl_pattern.search(line)
-            if match_decl:
-                current_type = match_decl.group(1)
-                continue
-            
-            # Detectar un identificador
-            match_id = identifier_pattern.search(line)
-            if match_id:
-                var_name = match_id.group(1)
-                if var_name not in symbol_table:
-                    symbol_table[var_name] = {'type': current_type, 'value': None, 'loc': len(symbol_table), 'lines': []}
-            
-            # Detectar una asignación
-            match_assign = assignment_pattern.search(line)
-            if match_assign:
-                current_assignment = True
-                
-                continue
+        # Detectar una asignación
+        match_assign = assignment_pattern.search(line)
+        if match_assign:
+            current_assignment = True
+            continue
 
-            # Detectar un valor literal en una asignación
-            match_number = number_pattern.search(line)
-            if match_number and current_assignment:
-                value = float(match_number.group(1))
-                last_var = list(symbol_table.keys())[-1]
-                symbol_table[last_var]['value'] = value
-                current_assignment = False  # Terminar la asignación
+        # Detectar un valor literal en una asignación
+        match_number = number_pattern.search(line)
+        if match_number and current_assignment and last_var:
+            value = float(match_number.group(1))
+            symbol_table[last_var]['value'] = value
+            symbol_table[last_var]['lines'].append(len(lines))
+            current_assignment = False  # Terminar la asignación
 
-        return symbol_table
+        # Detectar un resultado de una operación aritmética
+        match_result = result_pattern.search(line)
+        if match_result and last_var:
+            operation_type, result = match_result.groups()
+            result = float(result)
+            symbol_table[last_var]['value'] = result
+            symbol_table[last_var]['lines'].append(len(lines))
+            current_assignment = False  # Terminar la asignación
+
+    return symbol_table
+
 
 def enumerate_code_lines(file_path):
         """
