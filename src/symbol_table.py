@@ -1,33 +1,71 @@
+import re
 from parser_s import AnnotatedNode
+import math
 
 
 class SymbolTable:
     def __init__(self):
         self.table = {}
         self.loc_counter = 0  # Contador de LOC para asignar a cada variable
-
+        self.errors = []
     
-    def add_variable(self, name, type, value=None, line=None):
+    def update_value(self, var_name, value, assignment_node=None):
         """
-        Adds a variable to the symbol table, updating its value if it already exists.
+        Actualiza el valor de una variable en la tabla de símbolos, verificando la compatibilidad de tipos.
+        Si hay un error de tipo, se registra el error, pero se conserva el último valor válido.
         """
-        if name in self.table:
-            # Update the type to the most precise if necessary.
-            current_type = self.table[name]['type']
-            if type == 'float' or (type == 'int' and current_type == 'int'):
-                self.table[name]['type'] = type
-            
-            # Update the value and add the line of usage.
-            self.table[name]['value'] = value
-            if line:
-                self.table[name]['lines'].append(line)
+        if var_name in self.table:
+            variable_info = self.table[var_name][0]  # Obtener la información de la variable
+            var_type = variable_info['type']
+            print(f"DEBUG: Actualizando '{var_name}' de tipo '{var_type}' con el valor '{value}'.")
+
+            # Verificar si el tipo es 'int' y el valor es un float
+            try:
+                # Intentar convertir el valor a float si contiene un punto decimal
+                is_float = '.' in str(value)
+                numeric_value = float(value) if is_float else int(value)
+            except ValueError:
+                numeric_value = value  # Si no se puede convertir, mantenemos el valor original.
+
+            # Validar si se está intentando asignar un float a una variable de tipo int
+            if var_type == 'int' and is_float:
+                error_message = f"Error: No se puede asignar un valor float '{value}' a la variable '{var_name}' de tipo int."
+                self.errors.append(error_message)
+                print(f"DEBUG: {error_message}")
+
+                # No actualizar el valor en la tabla de símbolos, conservar el último valor válido.
+                variable_info['error'] = "Error de tipo de datos"
+
+                # Agregar un nodo de error al árbol si se proporciona el nodo de la asignación.
+                if assignment_node:
+                    error_node = AnnotatedNode(
+                        name="Error",
+                        value=error_message,
+                        type="TypeError",
+                        children=[],
+                    )
+                    assignment_node.add_child(error_node)
+            else:
+                # Asignar el valor si es compatible
+                variable_info['value'] = numeric_value
+                # Si el valor era válido, eliminar cualquier error previo
+                if 'error' in variable_info:
+                    del variable_info['error']
         else:
-            # Create new entry for the variable.
-            self.table[name] = {
-                'type': type,
-                'value': value,
-                'lines': [line] if line else []
-            }
+            error_message = f"Error: La variable '{var_name}' no está declarada."
+            self.errors.append(error_message)
+            print(f"DEBUG: {error_message}")
+            if assignment_node:
+                error_node = AnnotatedNode(
+                    name="Error",
+                    value=error_message,
+                    type="NameError",
+                    children=[],
+                )
+                assignment_node.add_child(error_node)
+
+
+
 
 
     def add_usage(self, name, line):
@@ -37,12 +75,10 @@ class SymbolTable:
         if name in self.table:
             symbol = self.table[name][0]  # Acceder al símbolo (primer diccionario)
 
-            # Añadir la línea si no está ya presente
-            if str(line) not in symbol['lines']:
-                symbol['lines'].append(str(line))
+            
 
 
-    def add_symbol(self, name, var_type, value, loc, line):
+    def add_symbol(self, name, var_type, value, loc):
         # Filtrar nodos con nombre "Identifier"
         if name == "Identifier":
             print(f"Se ignoró un nodo genérico 'Identifier'.")
@@ -68,7 +104,7 @@ class SymbolTable:
                 "type": var_type,
                 "value": value,
                 "loc": loc,
-                "lines": [str(line)]
+                
             }]
             self.loc_counter += 1  # Incrementar LOC
 
@@ -108,29 +144,23 @@ class SymbolTable:
                 symbol['lines'].append(str(line))
 
 
-    def update_value(self, name, value):
-        if name in self.table:
-            self.table[name][0]['value'] = value
-            print(f"DEBUG: Updated value of '{name}' to {value} in the symbol table.")
-
 
     
     def get_symbols(self):
         # Devolver toda la tabla de símbolos
         return self.table
 
-    def update_symbol(self, name, value, line):
+    def update_symbol(self, name, value):
         if name in self.table:
             symbol = self.table[name][0]
-            print(f"Actualizando valor de '{name}' a {value} en la línea {line}")
+            print(f"Actualizando valor de '{name}' a {value} en la línea ")
             
             # Actualizar el valor del símbolo si no es None
             if value is not None:
                 symbol['value'] = value  # Actualizamos el valor con lo que obtuvimos del AST
             
             # Agregar la línea si no está ya registrada
-            if line is not None and str(line) not in symbol['lines']:
-                symbol['lines'].append(str(line))
+            
         else:
             print(f"Error: la variable '{name}' no se encuentra en la tabla de símbolos.")
         
@@ -153,22 +183,18 @@ class SymbolTable:
 
     def display(self):
         """
-        Función para mostrar la tabla de símbolos sin mostrar None.
+        Función para mostrar la tabla de símbolos con la columna de errores.
         """
-        print(f"{'Variable':<10}{'Type':<10}{'Value':<10}{'LOC':<10}{'Lines':<20}{'Scope':<10}{'Const':<10}{'Init':<10}")
+        print(f"{'Variable':<10}{'Type':<10}{'Value':<10}{'LOC':<10}{'Lines':<20}{'Error':<20}")
         
         for name, symbols in self.table.items():
-            # Iteramos por cada símbolo en la lista (por si hay colisiones)
             for info in symbols:
-                # Filtrar las líneas que no sean None y convertirlas a string
-                lines = [str(line) for line in info["lines"] if line is not None]
-                lines_str = ', '.join(lines) if lines else ''  # Evitar que salga None
-                
-                # Mostrar la fila de la tabla con la lista de líneas correcta
-                print(f"{name:<10}{info['type']:<10}{info['value']:<10}{info['loc']:<10}{lines_str:<20}{info.get('scope', ''):<10}{info.get('is_const', ''):<10}{info.get('initialized', ''):<10}")
+                lines_str = ', '.join(str(line) for line in info.get('lines', []) if line)
+                error = info.get('error', '')
+                print(f"{name:<10}{info['type']:<10}{info['value']:<10}{info['loc']:<10}{lines_str:<20}{error:<20}")
 
 # Función para llenar la tabla de símbolos a partir del árbol anotado
-def fill_symbol_table(node, symbol_table, assign_lines, loc=None):
+def fill_symbol_table(node, symbol_table, loc=None):
     if node is None:
         return
 
@@ -179,109 +205,114 @@ def fill_symbol_table(node, symbol_table, assign_lines, loc=None):
         if isinstance(child, AnnotatedNode) and child.name == "VariableDeclaration":
             var_type = child.value
             var_name = child.children[0].value
-            line = child.line  # Usamos la línea del nodo
+           
 
-            # Solo agregamos la variable si la línea no es None y el nombre es válido
-            if line is not None and var_name != "Identifier":
-                print(f"Declaración de variable '{var_name}' en la línea {line}")
-                symbol_table.add_symbol(var_name, var_type, "", loc, line)
+            
 
         # Asignación de variables del tipo [variable] = algo
         elif isinstance(child, AnnotatedNode) and child.name == "Assignment":
             var_name = None
             var_value = None
-            line = child.line  # Usamos la línea del nodo de asignación
+            
 
             # Recorrer los hijos de Assignment para encontrar el identificador y el valor
             for child_node in child.children:
-                if child_node.name == "Identifier" and child_node.value != "Identifier":  # Filtrar "Identifier"
+                if child_node.name == "Identifier" and child_node.value != "Identifier":
                     var_name = child_node.value
-                    print(f"Variable identificada en la asignación: {var_name}")
                 elif child_node.name in ["Literal", "Number"]:
-                    var_value = child_node.value  # Tomamos el valor directamente del nodo
-                    print(f"Valor extraído del nodo: {var_value}")
+                    var_value = child_node.value
 
-            # Verificación del valor antes de actualizar la tabla de símbolos
-            print(f"Variable '{var_name}', valor: {var_value}, línea: {line}")
-
-            # Verificar que la variable esté en la tabla de símbolos
-            if var_name in symbol_table.table:
-                var_type = symbol_table.table[var_name][0]['type']
-
-                # **Verificar si el valor es None antes de intentar convertirlo**
-                if var_value is not None:
-                    try:
-                        # Convertir el valor si es un número flotante o entero
-                        var_value_converted = float(var_value) if '.' in str(var_value) else int(var_value)
-                    except ValueError:
-                        var_value_converted = var_value
-                else:
-                    var_value_converted = None
-
-                # Verificar si es un downcast
-                if var_type == "int" and isinstance(var_value_converted, float):
-                    # Si intentamos asignar un float a una variable int, es un error
-                    var_value = "Error de tipo de datos"
-                    print(f"Error: No se puede asignar un float a la variable '{var_name}' de tipo int.")
-
-            # Actualizamos el símbolo en la tabla con el valor (o error) y la línea de asignación
+            # Actualizamos la tabla de símbolos
             if var_name is not None:
-                symbol_table.update_symbol(var_name, var_value, line)
+                # Obtener el tipo de la variable desde la tabla de símbolos
+                var_info = symbol_table.get_symbol(var_name)
+                var_type = var_info[0]['type'] if var_info else 'unknown'
 
-        # Uso de variables en expresiones del tipo [variable], pero filtrando nodos genéricos "Identifier"
-        elif isinstance(child, AnnotatedNode) and child.name == "Identifier" and child.value != "Identifier":
-            var_name = child.value
-            line = child.line  # Usamos la línea del nodo donde aparece la variable
-            if line is not None:  # Solo agregar si la línea no es None
-                symbol_table.add_usage(var_name, line)
-                print(f"Uso de la variable '{var_name}' en la línea {line}")
+                is_float = '.' in str(var_value)  # Comprobar si el valor es un número flotante
 
-        # Llamada recursiva para procesar los hijos
-        fill_symbol_table(child, symbol_table, assign_lines, loc)
-
-
-
-
+                # Si la variable es de tipo int y el valor es flotante, asignar 0 y registrar el error
+                if var_type == 'int' and is_float:
+                    print(f"DEBUG: Asignando 0 a la variable '{var_name}' debido a valor flotante.")
+                    symbol_table.update_symbol(var_name, "Error de tipo de dato")
+                else:
+                    # Si la variable es de tipo float o el valor no es flotante, actualizar con el valor dado
+                    print(f"DEBUG: Actualizando '{var_name}' de tipo '{var_type}' con el valor '{var_value}'.")
+                    symbol_table.update_symbol(var_name, var_value)
 
 
 
-def update_variable_lines_in_expression(node, symbol_table, line):
-    """
-    Recorre una expresión para identificar todas las variables usadas
-    y registra las líneas correspondientes.
-    """
-    if node is None:
-        return
 
-    if node.name == "Identifier":
-        var_name = node.value
-        # Registrar que la variable fue usada en la línea de la expresión
-        symbol_table.add_usage(var_name, line)
 
-    # Procesar recursivamente las expresiones
-    for child in node.children:
-        update_variable_lines_in_expression(child, symbol_table, line)
+
+
+
 
 
 
 
 # Función para evaluar expresiones aritméticas
-def evaluate_expression(node, symbol_table):
-    if node.name == "Number":
-        return node.value  # Si es un número, devuelve el valor directamente
-    elif node.name == "Identifier":
-        var_name = node.value
-        symbol = symbol_table.get_symbol(var_name)
-        if symbol:
-            return symbol[0]['value']  # Retorna el valor almacenado en la tabla de símbolos
+def evaluate_expression(self, node, symbol_table):
+    """
+    Recursively evaluates an expression node using the values from the symbol table.
+    """
+    if node.name == 'Number':
+        try:
+            value = float(node.value) if '.' in node.value else int(node.value)
+            print(f"DEBUG: Evaluating Number: {node.value} -> {value}")
+            return value
+        except ValueError:
+            print(f"DEBUG: Error converting number: {node.value}")
+            return "Error de tipo de datos"
+
+    if node.name == 'Identifier':
+        var_info = symbol_table.table.get(node.value)
+        if var_info and var_info[0]['value'] is not None:
+            variable_value = var_info[0]['value']
+            # Si hay un error de tipo de datos registrado, manejar el caso.
+            if 'error' in var_info[0] and var_info[0]['error'] == "Error de tipo de datos":
+                print(f"DEBUG: Variable '{node.value}' tiene un error de tipo de datos.")
+                # Utilizar el valor numérico si es válido, a pesar del error.
+                if isinstance(variable_value, (int, float)):
+                    return variable_value
+                else:
+                    return "Error de tipo de datos"
+            return variable_value
         else:
-            print(f"Error: variable '{var_name}' no tiene valor asignado.")
-            return None
-    elif node.name == "TIMES":  # Multiplicación
-        left_value = evaluate_expression(node.children[0], symbol_table)
-        right_value = evaluate_expression(node.children[1], symbol_table)
-        return float(left_value) * float(right_value)
-    # Puedes añadir más operadores aquí (PLUS, MINUS, DIVIDE, etc.)
+            print(f"DEBUG: Error: Variable '{node.value}' usada antes de ser asignada.")
+            return "Error de tipo de datos"
+
+    # Evaluar nodos aritméticos.
+    if node.name in ['PLUS', 'MINUS', 'TIMES', 'DIVIDE']:
+        left_val = self.evaluate_expression(node.children[0], symbol_table)
+        right_val = self.evaluate_expression(node.children[1], symbol_table)
+
+        # Si alguno de los valores tiene un error, propagar el error.
+        if left_val == "Error de tipo de datos" or right_val == "Error de tipo de datos":
+            print(f"DEBUG: Propagando error de tipo de datos en la operación {node.name}.")
+            return "Error de tipo de datos"
+        
+        try:
+            # Realizar la operación si ambos valores son válidos.
+            if node.name == 'PLUS':
+                result = left_val + right_val
+            elif node.name == 'MINUS':
+                result = left_val - right_val
+            elif node.name == 'TIMES':
+                result = left_val * right_val
+            elif node.name == 'DIVIDE':
+                result = 1
+
+            
+            print(f"DEBUG: Result of {node.name}: {result}")
+            node.result = result
+            return result
+        except TypeError:
+            print(f"DEBUG: Error en la operación {node.name} debido a tipos incompatibles.")
+            return "Error de tipo de datos"
+    
+    return None
+
+
 
 
 

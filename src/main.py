@@ -213,6 +213,7 @@ class MainWindow(QMainWindow):
                 symbol_table = SymbolTable()
                 # Realizar análisis sintáctico y guardar el resultado en 'ast'
                 parser = Parser(tkns,symbol_table)
+                fill_symbol_table_lines_from_tokens(tkns, symbol_table)
                 ast = parser.parse()
 
                 #evaluate_ast(ast)
@@ -220,25 +221,12 @@ class MainWindow(QMainWindow):
                 # Mostrar el resultado sintáctico en el panel
                 set_syntactic_analysis_result(ast)
 
-                set_semantic_analysis_result(ast)
+                set_semantic_analysis_result(ast,symbol_table,parser)
 
-                assign_lines = self.extract_assignment_lines(tkns)
-                fill_symbol_table(ast, symbol_table, assign_lines)
+                
+                fill_symbol_table(ast, symbol_table,tkns)
 
-                # **Paso 2: Buscar las variables en las líneas de código adicionales**
-                print("Líneas de código:")
-                for line_num, code in code_lines.items():
-                    # Remover los comentarios antes de buscar las variables
-                    code_without_comments = remove_comments(code)
-            
-                    # Imprimir la línea de código sin comentarios
-                    print(f"Línea {line_num}: {code_without_comments}")
-                    
-                    for variable in symbol_table.get_symbols().keys():
-                        # Usar una expresión regular para buscar la variable como palabra completa
-                        # \b asegura que sea una palabra completa (no parte de otra palabra)
-                        if re.search(rf'\b{re.escape(variable)}\b', code_without_comments):
-                            symbol_table.add_usage(variable, line_num)
+                
 
                 # Renderizar el árbol sintáctico como una cadena
                 tree_str = parser.render_tree(ast)
@@ -386,16 +374,18 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(body_frame)
     
     def extract_assignment_lines(self, tokens):
-        """Extrae las líneas de las asignaciones de variables."""
+        """Extrae las líneas de las asignaciones de variables, registrando múltiples apariciones."""
         assignment_lines = {}
         
         for token in tokens:
             if token.type == 'ID':  # Identificadores de variables
                 if token.value not in assignment_lines:
                     assignment_lines[token.value] = []
-                assignment_lines[token.value].append(token.lineno)  # Registrar la línea donde aparece la variable
+                # Agregar la línea cada vez que se encuentra el token, incluso si es la misma
+                assignment_lines[token.value].append(token.lineno)
         
         return assignment_lines
+
 
 def remove_comments(code_line):
         # Remover todo lo que sigue después de "//"
@@ -466,6 +456,35 @@ def extract_symbols_from_tree(tree_str):
             current_assignment = False  # Terminar la asignación
 
     return symbol_table
+
+
+def fill_symbol_table_lines_from_tokens(tokens, symbol_table):
+    """
+    Llena solo la columna de líneas de la tabla de símbolos a partir de los tokens obtenidos del análisis léxico.
+    """
+    for token in tokens:
+        # Solo nos interesa agregar las líneas de los identificadores
+        if token.type == "IDENTIFIER":
+            var_name = token.value
+            line_num = token.lineno
+
+            # Si la variable ya existe en la tabla de símbolos, añadir la línea.
+            if var_name in symbol_table.table:
+                # Agregar la línea a la lista de 'lines'
+                symbol_table.table[var_name][0]['lines'].append(line_num)
+            else:
+                # Si la variable no está aún en la tabla, agregarla con solo la información de líneas.
+                symbol_table.table[var_name] = [{
+                    'type': 'unknown',  # Puede ajustarse si se sabe el tipo en otro lugar
+                    'value': None,
+                    'loc': symbol_table.loc_counter,
+                    'lines': [line_num]
+                }]
+                symbol_table.loc_counter += 1
+
+            print(f"Registrando la línea {line_num} para la variable '{var_name}'.")
+
+
 
 
 def enumerate_code_lines(file_path):

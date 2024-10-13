@@ -1,7 +1,6 @@
 main {
     int  x,y, z;
     float a, b, c;
-    float x;
     suma = 45;
     x = 32;
     x = 23.1;
