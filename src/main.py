@@ -6,6 +6,9 @@ import os
 from pathlib import Path
 from parser_s import Parser
 from lexer import get_lexical_analysis
+from intermediate_code_generator import IntermediateCodeGenerator
+from components.dock_panels import write_to_intermediate_code_panel
+
 
 from PyQt5.QtWidgets import (
     QMainWindow,
@@ -230,7 +233,8 @@ class MainWindow(QMainWindow):
 
                 # Renderizar el árbol sintáctico como una cadena
                 tree_str = parser.render_tree(ast)
-                print("tree_str",tree_str)
+                print("tree_str")
+                print(tree_str)
                 # Crear la tabla de símbolos
                 
 
@@ -240,11 +244,18 @@ class MainWindow(QMainWindow):
                 # Mostrar la tabla de símbolos en el panel
                 set_hash_table(symbols)
 
-                
-                # Mostrar el árbol sintáctico en consola (para depuración)
-                #print(tree_str)
+                 # Generar el código intermedio
+                 # **Generar el código intermedio**
+                icg = IntermediateCodeGenerator()
+                icg.generate_code(ast)
 
-                # Indicar que la compilación fue exitosa
+                # Obtener y mostrar el código intermedio
+                intermediate_code = icg.get_code()
+                print("Intermediate Code:")
+                print(intermediate_code)
+                write_to_intermediate_code_panel(intermediate_code)
+                
+                    
                 self.statusBar().showMessage("Compilation successful", 2000)
             else:
                 # Mostrar mensaje de error si hubo fallos en el análisis léxico

@@ -9,6 +9,11 @@ class SymbolTable:
         self.loc_counter = 0  # Contador de LOC para asignar a cada variable
         self.errors = []
     
+    def lookup(self, name):
+        """Busca un símbolo en la tabla."""
+        return self.table.get(name)  # Devuelve el símbolo o None si no existe
+
+    
     def update_value(self, var_name, value, assignment_node=None):
         """
         Actualiza el valor de una variable en la tabla de símbolos, verificando la compatibilidad de tipos.
@@ -104,6 +109,7 @@ class SymbolTable:
                 "type": var_type,
                 "value": value,
                 "loc": loc,
+                "locs": [loc],
                 
             }]
             self.loc_counter += 1  # Incrementar LOC

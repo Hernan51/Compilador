@@ -400,59 +400,75 @@ class Parser:
             raise Exception(f"Unexpected token {self.current_token.type}")
 
     def assignment_or_increment_decrement(self):
-        identifier_token = self.current_token.value
-        line_number = self.current_token.lineno  # Guardar la línea donde ocurre
+        identifier_token = self.current_token.value  # Obtener el nombre de la variable
+        self.eat("IDENTIFIER")  # Consumir el token de identificación
 
-        # Registrar el uso de la variable en la tabla de símbolos
-        self.symbol_table.add_usage(identifier_token, line_number)
-        self.eat("IDENTIFIER")
-        
         if self.current_token.type == "ASSIGN":
-            assign_token = self.current_token
+            # Manejo de asignaciones normales, ejemplo: x = 10
             self.eat("ASSIGN")
-            expression = self.sent_expression()
-            self.eat("SEMICOLON")
-
-            # Evaluar la expresión para obtener el valor
-            value = self.evaluate_expression(expression, self.symbol_table)
-
-            # Actualizar el valor de la variable en la tabla de símbolos
-            self.symbol_table.update_value(identifier_token, value)
-
-            # Crear el nodo de la asignación con el valor asociado
+            expression = self.expression()  # Parsear la expresión
+            self.eat("SEMICOLON")  # Confirmar que termina con punto y coma
             return AnnotatedNode(
                 name="Assignment",
-                value=assign_token.value,
+                value="=",
                 type="Assignment",
                 children=[
-                    AnnotatedNode("Identifier", value=identifier_token, type="Variable", result=value),
+                    AnnotatedNode("Identifier", value=identifier_token, type="Variable"),
                     expression,
                 ],
             )
+
         elif self.current_token.type == "INCREMENT_OPERATOR":
-            operator_token = self.current_token
+            # Manejo de incremento, ejemplo: x++
             self.eat("INCREMENT_OPERATOR")
             self.eat("SEMICOLON")
-            return AnnotatedNode(
-                name="Increment",
-                value=operator_token.value,
-                type="Increment",
-                children=[AnnotatedNode(name="Identifier", value=identifier_token, type="Variable")],
+            temp_node = AnnotatedNode(
+                name="Arithmetic",
+                value="+",
+                type="Arithmetic",
+                children=[
+                    AnnotatedNode("Identifier", value=identifier_token, type="Variable"),
+                    AnnotatedNode("Number", value="1", type="Literal"),
+                ],
             )
+            return AnnotatedNode(
+                name="Assignment",
+                value="=",
+                type="Assignment",
+                children=[
+                    AnnotatedNode("Identifier", value=identifier_token, type="Variable"),
+                    temp_node,
+                ],
+            )
+
         elif self.current_token.type == "DECREMENT_OPERATOR":
-            operator_token = self.current_token
+            # Manejo de decremento, ejemplo: y--
             self.eat("DECREMENT_OPERATOR")
             self.eat("SEMICOLON")
-            return AnnotatedNode(
-                name="Decrement",
-                value=operator_token.value,
-                type="Decrement",
-                children=[AnnotatedNode("Identifier", value=identifier_token, type="Variable")],
+            temp_node = AnnotatedNode(
+                name="Arithmetic",
+                value="-",
+                type="Arithmetic",
+                children=[
+                    AnnotatedNode("Identifier", value=identifier_token, type="Variable"),
+                    AnnotatedNode("Number", value="1", type="Literal"),
+                ],
             )
+            return AnnotatedNode(
+                name="Assignment",
+                value="=",
+                type="Assignment",
+                children=[
+                    AnnotatedNode("Identifier", value=identifier_token, type="Variable"),
+                    temp_node,
+                ],
+            )
+
         else:
             raise Exception(f"Unexpected token {self.current_token.type}")
-        
-        result = self.evaluate_expression(expression, self.symbol_table)
+
+
+
 
 
     def sent_expression(self):
@@ -461,6 +477,7 @@ class Parser:
             return AnnotatedNode("EmptyStatement")
         else:
             return self.expression()
+
 
     def if_statement(self):
         self.eat("IF")
@@ -535,7 +552,10 @@ class Parser:
         return AnnotatedNode(name="Output", value=identifier, type="Output", children=[expression])
 
     def expression(self):
-        node = self.logical_expression()
+        # Empezar evaluando operaciones aritméticas
+        node = self.arithmetic_expression()
+
+        # Manejar comparaciones (lógicas)
         if self.current_token and self.current_token.type in [
             "LT",
             "LE",
@@ -550,9 +570,28 @@ class Parser:
                 name=token.type,
                 value=token.value,
                 type="Comparison",
-                children=[node, self.logical_expression()],
+                children=[node, self.arithmetic_expression()],
             )
         return node
+    
+
+    def arithmetic_expression(self):
+        # Procesar el primer término
+        node = self.term()
+
+        # Manejar operadores aritméticos como '+' y '-'
+        while self.current_token and self.current_token.type in ["PLUS", "MINUS"]:
+            token = self.current_token
+            self.eat(token.type)
+            node = AnnotatedNode(
+                name=token.type,
+                value=token.value,
+                type="Arithmetic",
+                children=[node, self.term()],
+            )
+        return node
+
+
 
     def logical_expression(self):
         node = self.simple_expression()
@@ -608,7 +647,14 @@ class Parser:
             except ValueError:
                 raise ValueError(f"Invalid number literal: {node.value}")
 
-        
+        # Si el nodo es un identificador, obtener su valor de la tabla de símbolos
+        elif node.name == "Identifier":    
+            var_info = self.symbol_table.get_symbol(node.value)  # Consulta la tabla de símbolos
+            if var_info and 'value' in var_info[0]:  # Verifica si la variable tiene un valor asignado
+                return var_info[0]['value']
+            else:
+                raise Exception(f"Error: La variable '{node.value}' no ha sido inicializada o no existe.")
+
         # Evaluar comparaciones como GT, LT, EQ, etc.
         elif node.type == "Comparison":
             left_value = self.evaluate_node(node.children[0])
@@ -645,7 +691,6 @@ class Parser:
             else:
                 node.children = (result_node,)
 
-        
             return result
 
         # Evaluar nodos condicionales (If)
@@ -676,38 +721,38 @@ class Parser:
 
 
 
-
-
-
-
-
-
-
-
-
     def term(self):
         node = self.factor()
-        while self.current_token and self.current_token.type in [
-            "TIMES",
-            "DIVIDE",
-            "MOD",
-        ]:
+        while self.current_token and self.current_token.type in ["TIMES", "DIVIDE", "MOD"]:
             token = self.current_token
             self.eat(token.type)
             node = AnnotatedNode(
-                name=token.type, value=token.value, type="Arithmetic", children=[node, self.factor()]
+                name=token.type,
+                value=token.value,
+                type="Arithmetic",
+                children=[node, self.factor()]
             )
         return node
 
+
     def factor(self):
-        node = self.component()
-        while self.current_token and self.current_token.type == "POW":
-            token = self.current_token
-            self.eat("POW")
-            node = AnnotatedNode(
-                name=token.type, value=token.value, type="Exponentiation", children=[node, self.component()]
-            )
-        return node
+        if self.current_token.type == "LPAREN":
+            self.eat("LPAREN")
+            node = self.expression()
+            self.eat("RPAREN")
+            return node
+        elif self.current_token.type in ["INTEGER_NUMBER", "REAL_NUMBER"]:
+            value = self.current_token.value
+            self.eat(self.current_token.type)
+            return AnnotatedNode(name="Number", value=value, type="Literal")
+        elif self.current_token.type == "IDENTIFIER":
+            identifier = self.current_token.value
+            self.eat("IDENTIFIER")
+            # Retorna un nodo para el identificador
+            return AnnotatedNode(name="Identifier", value=identifier, type="Variable")
+        else:
+            raise Exception(f"Unexpected token {self.current_token.type}")
+
 
     def component(self):
         if self.current_token.type == "LPAREN":
@@ -766,6 +811,59 @@ class Parser:
 
 
 
+# parser_s.py
+
+class IntermediateCodeGenerator:
+    def __init__(self, symbol_table):
+        self.symbol_table = symbol_table  # Referencia a la tabla de símbolos
+        self.temp_count = 0  # Contador para variables temporales
+        self.instructions = []  # Lista para almacenar instrucciones generadas
+
+    def new_temp(self):
+        """Genera un nuevo nombre de variable temporal."""
+        self.temp_count += 1
+        temp_var = f"t{self.temp_count}"
+        self.symbol_table.add(temp_var, "TEMP")  # Agrega la temporal a la tabla de símbolos
+        return temp_var
+
+    def generate_expression(self, node):
+        """
+        Genera código de tres direcciones para un nodo de expresión en el AST.
+        """
+        if node.is_leaf():  # Nodo hoja: variable o literal
+            return node.value
+
+        # Procesa nodos binarios
+        left = self.generate_expression(node.left)
+        right = self.generate_expression(node.right)
+        temp_var = self.new_temp()
+        operation = node.operation  # e.g., '+', '-', '*', '/'
+
+        # Genera la instrucción de tres direcciones
+        instruction = f"{temp_var} = {left} {operation} {right}"
+        self.instructions.append(instruction)
+        return temp_var  # Retorna el temporal con el resultado
+
+    def generate_assignment(self, var_name, expression_node):
+        """
+        Genera código para una sentencia de asignación.
+        """
+        expr_result = self.generate_expression(expression_node)
+        instruction = f"{var_name} = {expr_result}"
+        self.instructions.append(instruction)
+
+    def generate_code(self, ast_root):
+        """
+        Recorre el AST y genera el código intermedio.
+        """
+        # Aquí recorremos el AST y aplicamos `generate_expression` y `generate_assignment`
+        # de acuerdo con el tipo de nodo
+        # Esta función debe ser adaptada según la estructura de tu AST.
+        pass
+
+    def get_instructions(self):
+        """Devuelve las instrucciones generadas."""
+        return self.instructions
 
     
 
@@ -799,3 +897,5 @@ if __name__ == "__main__":
 
             # Optionally, export the tree to a file (e.g., a dot file for visualization)
             #DotExporter(ast).to_dotfile("ast.dot")
+
+

@@ -64,16 +64,24 @@ def get_lexical_analysis(file: Path):
 
                     if re.match(aritmethic_op_pattern, char) and not is_block_comment:
                         if char == "+" and line[index_string + 1] == "+":
-                            tokens.append(
-                                Token("INCREMENT_OPERATOR", "++", lineno, lexpos)
-                            )
+                            tokens.append(Token("INCREMENT_OPERATOR", "++", lineno, lexpos))
                             skip_col += 1
                             continue
                         if char == "-" and line[index_string + 1] == "-":
-                            tokens.append(
-                                Token("DECREMENT_OPERATOR", "--", lineno, lexpos)
-                            )
+                            tokens.append(Token("DECREMENT_OPERATOR", "--", lineno, lexpos))
                             skip_col += 1
+                            continue
+                        if char == "-" and (index_string + 1 < len(line)) and line[index_string + 1].isdigit():
+                            # Añadir un token MINUS para el operador
+                            tokens.append(Token("MINUS", char, lineno, lexpos))
+                            # Procesar el número que sigue al operador
+                            number = ""
+                            index = index_string + 1
+                            while index < len(line) and line[index].isdigit():
+                                number += line[index]
+                                index += 1
+                            tokens.append(Token("INTEGER_NUMBER", number, lineno, lexpos + 1))
+                            skip_col = len(number)  # Saltar los caracteres del número
                             continue
                         if (
                             char == "/"
@@ -140,9 +148,7 @@ def get_lexical_analysis(file: Path):
                                     skip_col += 1
                                 elif (
                                     c == "."
-                                    and re.match(
-                                        number_pattern, rest_of_string[i_c + 1]
-                                    )
+                                    and re.match(number_pattern, rest_of_string[i_c + 1])
                                     and not is_float_recognized
                                 ):
                                     is_float_recognized = True
@@ -152,57 +158,11 @@ def get_lexical_analysis(file: Path):
                                     break
                             break
                         if is_float_recognized:
-                            if tokens and tokens[-1].value == "-":
-                                if (
-                                    len(tokens) >= 2
-                                    and tokens[-2].value == "("
-                                    or tokens[-2].type
-                                    not in (
-                                        "INTEGER_NUMBER",
-                                        "REAL_NUMBER",
-                                        "NEGATIVE_INTEGER_NUMBER",
-                                        "NEGATIVE_REAL_NUMBER",
-                                    )
-                                ):
-                                    tokens.pop()
-                                    number = "-" + number
-                                    tokens.append(
-                                        Token(
-                                            "NEGATIVE_REAL_NUMBER",
-                                            number,
-                                            lineno,
-                                            lexpos,
-                                        )
-                                    )
-                                    continue
                             tokens.append(Token("REAL_NUMBER", number, lineno, lexpos))
                             continue
-                        if tokens and tokens[-1].value == "-":
-                            if tokens and tokens[-1].value == "-":
-                                if (
-                                    len(tokens) >= 2
-                                    and tokens[-2].value == "("
-                                    or tokens[-2].type
-                                    not in (
-                                        "INTEGER_NUMBER",
-                                        "REAL_NUMBER",
-                                        "NEGATIVE_INTEGER_NUMBER",
-                                        "NEGATIVE_REAL_NUMBER",
-                                    )
-                                ):
-                                    tokens.pop()
-                                    number = "-" + number
-                                    tokens.append(
-                                        Token(
-                                            "NEGATIVE_INTEGER_NUMBER",
-                                            number,
-                                            lineno,
-                                            lexpos,
-                                        )
-                                    )
-                                    continue
                         tokens.append(Token("INTEGER_NUMBER", number, lineno, lexpos))
                         continue
+
 
                     if not is_block_comment:
                         errors.append(

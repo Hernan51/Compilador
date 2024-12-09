@@ -33,6 +33,8 @@ def set_up_dock_panels(window: QMainWindow):
         None
     """
 
+    global intermediate_code_widget
+    
     # Panel for the Lexical Analysis
     lexer_panel = QDockWidget("Lexico", window)
     lexer_panel.setStyleSheet(open("./src/css/style.css", encoding="utf-8").read())
@@ -232,8 +234,26 @@ def set_semantic_analysis_result(ast, symbol_table,parser_instance):
         print("Error: 'semantic' panel not initialized.")
 
 
+def write_to_intermediate_code_panel(text):
+    """
+    Escribe texto en el panel de código intermedio.
 
+    Args:
+        text: El texto que se escribirá en el panel.
+    """
+    widget = get_intermediate_code_widget()
+    if widget is not None:
+        widget.append(text)
+    else:
+        print("Error: Panel de código intermedio no está inicializado.")
 
+intermediate_code_widget = None
+
+def get_intermediate_code_widget():
+    """
+    Devuelve el widget del panel de código intermedio para actualizarlo.
+    """
+    return intermediate_code_widget
 
 
 
@@ -343,4 +363,6 @@ def add_tree_item(parent, node):
     # Continuar con la creación de los nodos hijos si los hay.
     for child in node.children:
         add_tree_item(item, child)
+
+
 
