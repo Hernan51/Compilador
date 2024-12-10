@@ -1,0 +1,16 @@
+main {
+    float sueldo, nuevo_sueldo;
+
+    // Leer el sueldo
+    cin sueldo;
+
+    // Calcular el nuevo sueldo
+    if (sueldo < 1000) {
+        nuevo_sueldo = sueldo + (sueldo * 0.15);
+    } else {
+        nuevo_sueldo = sueldo + (sueldo * 0.12);
+    }
+
+    // Mostrar el resultado
+    cout nuevo_sueldo;
+}

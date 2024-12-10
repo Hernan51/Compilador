@@ -1,0 +1,64 @@
+main {
+    int matricula, semestre;
+    float promedio;
+    char carrera;
+    
+    // Leer datos del estudiante
+    cin matricula;
+    cin carrera;  // Usamos una sola letra para representar la carrera ('E', 'C', 'A', 'T')
+    cin semestre;
+    cin promedio;
+
+    
+    if (carrera == "E") {  
+        if (semestre >= 6 and promedio > 8.8) {
+            cout "Matricula: ";
+            cout matricula;
+            cout "Carrera: Economia";
+            cout "Aceptado: 1";
+        } else {
+            cout "Matricula: ";
+            cout matricula;
+            cout "Carrera: Economia";
+            cout "Aceptado: 0";
+        }
+    } else if (carrera == 'C') {  
+        if (semestre >= 6 and promedio > 8.5) {
+            cout "Matricula: ";
+            cout matricula;
+            cout "Carrera: Computacion";
+            cout "Aceptado: 1";
+        } else {
+            cout "Matricula: ";
+            cout matricula;
+            cout "Carrera: Computacion";
+            cout "Aceptado: 0";
+        }
+    } else if (carrera == 'A') {  
+        if (semestre > 5 and promedio > 8.5) {
+            cout "Matricula: ";
+            cout matricula;
+            cout "Carrera: Administracion";
+            cout "Aceptado: 1";
+        } else {
+            cout "Matricula: ";
+            cout matricula;
+            cout "Carrera: Administracion";
+            cout "Aceptado: 0";
+        }
+    } else if (carrera == 'T') {  
+        if (semestre > 5 and promedio > 8.5) {
+            cout "Matricula: ";
+            cout matricula;
+            cout "Carrera: Contabilidad";
+            cout "Aceptado: 1";
+        } else {
+            cout "Matricula: ";
+            cout matricula;
+            cout "Carrera: Contabilidad";
+            cout "Aceptado: 0";
+        }
+    } else {
+        cout " carrera no valida ";
+    }
+}

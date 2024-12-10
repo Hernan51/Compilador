@@ -156,13 +156,14 @@ class CustomLexer(QsciLexerCustom):
         ############################## Patterns ##############################
         identifier_pattern = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*$")
         reserved_words_pattern = re.compile(
-            r"\b(if|else|do|while|switch|case|double|main|cin|cout|int|float)\b"
+            r"\b(if|else|do|while|switch|case|double|main|cin|cout|int|float|char)\b"
         )
         number_pattern = re.compile(r"\b\d+\b")
         aritmethic_op_pattern = re.compile(r"\+|-|\*|/|%|\^")
         relational_op_pattern = re.compile(r"<|>|!|=")
         logical_op_pattern = re.compile(r"\b(?:and|or)\b")
         p = re.compile(r"//.*?$|/\*|\*/|\b\w+\b|\W", re.MULTILINE)
+        char_literal_pattern = re.compile(r"^'[^']'$")
         ######################################################################
 
         # Called everytime the editors text has changed
@@ -191,6 +192,8 @@ class CustomLexer(QsciLexerCustom):
                 self.setStyling(token[1], self.COMMENT)
             elif reserved_words_pattern.match(token[0]):
                 self.setStyling(token[1], self.KEYWORD)
+            elif char_literal_pattern.match(token[0]):  
+                self.setStyling(token[1], self.NUMBER)
             elif logical_op_pattern.match(token[0]):
                 self.setStyling(token[1], self.LOGICAL_OPERATOR)
             elif identifier_pattern.match(token[0]):

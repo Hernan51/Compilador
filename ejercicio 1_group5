@@ -1,0 +1,13 @@
+main {
+    float r, h, area, volumen;
+
+    cin r;
+    cin h;
+    
+    volumen = 3.1416 * r * r * h;
+    
+    area = 2 * 3.1416 * r * (r + h);
+  
+    cout  area;
+    cout volumen;
+}
