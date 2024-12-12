@@ -1,0 +1,28 @@
+main {
+    int N, numero, mayor, menor;
+
+    cin N;
+
+    if (N > 0) {
+        cin numero;
+        mayor = numero;
+        menor = numero;
+
+        N=N-1; 
+        while (N > 0) {
+            cin numero;
+            if (numero > mayor){
+                mayor = numero;
+            }
+            if (numero < menor){
+                menor = numero;
+            }
+            N= N -1;
+        }
+
+        cout mayor;
+        cout menor;
+    } else {
+        cout "Cantidad invalida";
+    }
+}

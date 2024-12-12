@@ -13,7 +13,7 @@ class AnnotatedNode(NodeMixin):
         self.result_comp = result_comp
 
         if children:
-            self.children = children
+            self.children = [child for child in children if isinstance(child, NodeMixin)]
 
     
     def check_type_compatibility(self, target_type, value):
@@ -78,6 +78,7 @@ class Parser:
 
     def eat(self, token_type):
         if self.current_token.type == token_type:
+            print(f"Eating token: {self.current_token.type} -> {self.current_token.value}")
             self.current_token_index += 1
             if self.current_token_index < len(self.tokens):
                 self.current_token = self.tokens[self.current_token_index]
@@ -304,11 +305,13 @@ class Parser:
 
     def declaration_list(self):
         declarations = []
-        while self.current_token.type in ['INT', 'FLOAT']:  # Agregar otros tipos si es necesario
+        while self.current_token.type in ['INT', 'FLOAT','CHAR']:  # Agregar otros tipos si es necesario
             if self.current_token.type == 'INT':
                 declarations.extend(self.variable_declaration('int'))
             elif self.current_token.type == 'FLOAT':
                 declarations.extend(self.variable_declaration('float'))
+            elif self.current_token.type == 'CHAR':
+                declarations.extend(self.variable_declaration('char'))
 
         return declarations
 
@@ -320,6 +323,8 @@ class Parser:
             return self.variable_declaration("double")
         elif self.current_token.type == "FLOAT":
             return self.variable_declaration("float")
+        elif self.current_token.type == "CHAR":
+            return self.variable_declaration("char")
         else:
             return self.sentence()
 
@@ -332,6 +337,8 @@ class Parser:
             self.eat('INT')
         elif var_type == 'float':
             self.eat('FLOAT')
+        elif var_type == 'char':
+            self.eat('CHAR')
 
         declaration_nodes = []
 
@@ -396,6 +403,8 @@ class Parser:
             return self.cout_sentence()
         elif self.current_token.type == "IDENTIFIER":
             return self.assignment_or_increment_decrement()
+        elif self.current_token.type == "CHAR":  # Nuevo caso para 'char'
+            return self.variable_declaration("char")
         else:
             raise Exception(f"Unexpected token {self.current_token.type}")
 
@@ -404,19 +413,36 @@ class Parser:
         self.eat("IDENTIFIER")  # Consumir el token de identificación
 
         if self.current_token.type == "ASSIGN":
-            # Manejo de asignaciones normales, ejemplo: x = 10
+            # Manejo de asignaciones normales, ejemplo: x = 10 o j = "hola"
             self.eat("ASSIGN")
-            expression = self.expression()  # Parsear la expresión
-            self.eat("SEMICOLON")  # Confirmar que termina con punto y coma
-            return AnnotatedNode(
-                name="Assignment",
-                value="=",
-                type="Assignment",
-                children=[
-                    AnnotatedNode("Identifier", value=identifier_token, type="Variable"),
-                    expression,
-                ],
-            )
+
+            if self.current_token.type in ["STRING_LITERAL", "CHAR_LITERAL"]:
+                # Manejo de asignación de literales de texto o carácter
+                literal_value = self.current_token.value
+                self.eat(self.current_token.type)
+                self.eat("SEMICOLON")  # Confirmar que termina con punto y coma
+                return AnnotatedNode(
+                    name="Assignment",
+                    value="=",
+                    type="Assignment",
+                    children=[
+                        AnnotatedNode("Identifier", value=identifier_token, type="Variable"),
+                        AnnotatedNode("Literal", value=literal_value, type="Literal"),
+                    ],
+                )
+            else:
+                # Manejo de asignación de expresiones
+                expression = self.expression()  # Parsear la expresión
+                self.eat("SEMICOLON")  # Confirmar que termina con punto y coma
+                return AnnotatedNode(
+                    name="Assignment",
+                    value="=",
+                    type="Assignment",
+                    children=[
+                        AnnotatedNode("Identifier", value=identifier_token, type="Variable"),
+                        expression,
+                    ],
+                )
 
         elif self.current_token.type == "INCREMENT_OPERATOR":
             # Manejo de incremento, ejemplo: x++
@@ -480,19 +506,41 @@ class Parser:
 
 
     def if_statement(self):
-        self.eat("IF")
-        self.eat("LPAREN")
-        condition = self.expression()
-        self.eat("RPAREN")
-        self.eat("LBRACE")
-        true_branch = self.sentence_list()
-        self.eat("RBRACE")
+        """
+        Procesa una sentencia if-else con soporte para condiciones anidadas.
+        """
+        print("Parsing if statement...")
+        self.eat("IF")  # Consume el token 'if'
+        self.eat("LPAREN")  # Consume el paréntesis de apertura '('
+        condition = self.expression()  # Procesa la condición lógica
+        print(f"Condition parsed: {condition}")
+        self.eat("RPAREN")  # Consume el paréntesis de cierre ')'
+        self.eat("LBRACE")  # Consume la llave de apertura '{'
+        true_branch = self.sentence_list()  # Procesa el bloque verdadero
+        self.eat("RBRACE")  # Consume la llave de cierre '}'
 
+        # Manejar else if y else
+        false_branch = None
         if self.current_token and self.current_token.type == "ELSE":
-            self.eat("ELSE")
-            self.eat("LBRACE")
-            false_branch = self.sentence_list()
-            self.eat("RBRACE")
+            self.eat("ELSE")  # Consume el token 'else'
+            if self.current_token.type == "IF":
+                # Procesar un 'else if' como un nodo if anidado
+                false_branch = self.if_statement()
+            else:
+                self.eat("LBRACE")  # Consume la llave de apertura '{'
+                false_statements = self.sentence_list()  # Procesa las sentencias dentro del else
+                self.eat("RBRACE")  # Consume la llave de cierre '}'
+
+                # Construir el nodo FalseBranch
+                false_branch = AnnotatedNode(
+                    name="FalseBranch",
+                    value="false_branch",
+                    children=false_statements
+                )
+
+
+        # Construir y retornar el nodo if
+        if false_branch:
             return AnnotatedNode(
                 name="If",
                 value="if",
@@ -500,9 +548,7 @@ class Parser:
                 children=[
                     condition,
                     AnnotatedNode(name="TrueBranch", value="true_branch", children=true_branch),
-                    AnnotatedNode(
-                        name="FalseBranch", value="false_branch", children=false_branch
-                    ),
+                    false_branch  # Usa el nodo construido para FalseBranch
                 ],
             )
         else:
@@ -516,6 +562,10 @@ class Parser:
                 ],
             )
 
+
+
+
+
     def while_loop_sentence(self):
         self.eat("WHILE")
         self.eat("LPAREN")
@@ -524,7 +574,22 @@ class Parser:
         self.eat("LBRACE")
         statements = self.sentence_list()
         self.eat("RBRACE")
-        return AnnotatedNode(name="While", value="while", type="Loop", children=[condition] + statements)
+        
+
+        while_node = AnnotatedNode(
+            name="While",
+            value="while",
+            type="Loop",
+            children=[condition] + statements
+        )
+    
+        print(f"DEBUG: Nodo While generado: {while_node}")
+        print(f"DEBUG: Condición del While: {condition}")
+        print(f"DEBUG: Sentencias del While: {statements}")
+        
+
+        return while_node
+
 
     def do_while_loop_sentence(self):
         self.eat("DO")
@@ -538,11 +603,26 @@ class Parser:
         return AnnotatedNode(name="DoWhile", value="do_while", type="Loop", children=statements + [condition])
 
     def cin_sentence(self):
-        identifier = self.current_token.value
-        self.eat("CIN")
-        self.eat("IDENTIFIER")
-        self.eat("SEMICOLON")
-        return AnnotatedNode(name="Input", value=identifier, type="Input")
+        """
+        Procesa un nodo de entrada cin, asegurando que extraiga el identificador correctamente.
+        """
+        self.eat("CIN")  # Consume el token 'cin'
+        
+        if self.current_token.type == "IDENTIFIER":
+            identifier = self.current_token.value  # Captura el nombre de la variable
+            self.eat("IDENTIFIER")  # Consume el identificador
+        else:
+            raise Exception("Error: Se esperaba un identificador después de 'cin'.")
+
+        self.eat("SEMICOLON")  # Confirma el final de la instrucción con un punto y coma
+
+        # Retorna un nodo 'Input' con el identificador como su hijo
+        return AnnotatedNode(
+            name="Input", 
+            value=identifier, 
+            type="Input"
+        )
+
 
     def cout_sentence(self):
         identifier = self.current_token.value
@@ -552,28 +632,26 @@ class Parser:
         return AnnotatedNode(name="Output", value=identifier, type="Output", children=[expression])
 
     def expression(self):
-        # Empezar evaluando operaciones aritméticas
+        """
+        Procesa expresiones lógicas y aritméticas, incluyendo operadores AND y OR.
+        """
+        # Procesa la primera parte de la expresión (como un término aritmético o comparativo)
         node = self.arithmetic_expression()
 
-        # Manejar comparaciones (lógicas)
-        if self.current_token and self.current_token.type in [
-            "LT",
-            "LE",
-            "GT",
-            "GE",
-            "EQ",
-            "NE",
+        # Maneja operadores lógicos (AND, OR) y comparativos en bucle
+        while self.current_token and self.current_token.type in [
+            "LT", "LE", "GT", "GE", "EQ", "NE", "AND", "OR"
         ]:
             token = self.current_token
-            self.eat(token.type)
+            self.eat(token.type)  # Consume el operador actual
+            right = self.arithmetic_expression()  # Procesa la parte derecha de la expresión
             node = AnnotatedNode(
                 name=token.type,
                 value=token.value,
-                type="Comparison",
-                children=[node, self.arithmetic_expression()],
+                type="Logical Operation" if token.type in ["AND", "OR"] else "Comparison",
+                children=[node, right],
             )
         return node
-    
 
     def arithmetic_expression(self):
         # Procesar el primer término
@@ -741,6 +819,14 @@ class Parser:
             node = self.expression()
             self.eat("RPAREN")
             return node
+        elif self.current_token.type == "CHAR_LITERAL":
+            value = self.current_token.value
+            self.eat("CHAR_LITERAL")
+            return AnnotatedNode(name="Literal", value=value, type="Literal")
+        elif self.current_token.type == "STRING_LITERAL":
+            value = self.current_token.value
+            self.eat("STRING_LITERAL")
+            return AnnotatedNode(name="Literal", value=value, type="Literal")
         elif self.current_token.type in ["INTEGER_NUMBER", "REAL_NUMBER"]:
             value = self.current_token.value
             self.eat(self.current_token.type)
@@ -748,10 +834,10 @@ class Parser:
         elif self.current_token.type == "IDENTIFIER":
             identifier = self.current_token.value
             self.eat("IDENTIFIER")
-            # Retorna un nodo para el identificador
             return AnnotatedNode(name="Identifier", value=identifier, type="Variable")
         else:
             raise Exception(f"Unexpected token {self.current_token.type}")
+
 
 
     def component(self):

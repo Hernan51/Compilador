@@ -1,0 +1,81 @@
+main {
+    int N, tipo, anio, cantidad, mayor_tipo_dos, anio_mayor_tipo_dos;
+    int total_tipo_uno, total_tipo_dos, total_tipo_tres, total_tipo_cuatro, total_tipo_cinco;
+    int total_anio, i, t;
+
+ 
+    mayor_tipo_dos = 0;
+    anio_mayor_tipo_dos = 0;
+    total_tipo_uno = 0;
+    total_tipo_dos = 0;
+    total_tipo_tres = 0;
+    total_tipo_cuatro = 0;
+    total_tipo_cinco = 0;
+    total_anio = 0;
+   
+    
+
+    cin N;
+
+    i = 0;
+    
+    while (i < N) { 
+        total_anio = 0;
+        t = 1;
+        while (t <= 5) {
+            cout "Ingrese la cantidad producida para el tipo ";
+            cout t;
+            cout "en el anio";
+            cout (i + 1);
+            cout  ": ";
+            cin cantidad;
+            if (t == 1) {
+                total_tipo_uno = total_tipo_uno + cantidad;
+            } else if (t == 2) {
+                total_tipo_dos = total_tipo_dos + cantidad;
+                if (cantidad > mayor_tipo_dos) {
+                    mayor_tipo_dos = cantidad;
+                    anio_mayor_tipo_dos = i + 1;
+                }
+            } else if (t == 3) {
+                total_tipo_tres = total_tipo_tres + cantidad;
+                if (cantidad == 0) {
+                    cout "En el anio ";
+                    cout (i + 1);
+                    cout "no se produjo vino tipo 3";
+                }
+            } else if (t == 4) {
+                total_tipo_cuatro = total_tipo_cuatro + cantidad;
+            } else if (t == 5) {
+                total_tipo_cinco = total_tipo_cinco + cantidad;
+            }
+
+            total_anio = total_anio + cantidad;
+            t=t+1;
+        }
+        cout "El total producido en el anio ";
+        cout (i + 1);
+        cout " es: ";
+        cout total_anio;
+        cout "\n";
+        i=i+1;
+    }
+
+    cout "\nTotal producido por tipo de vino:\n";
+    cout "Tipo 1: ";
+    cout total_tipo_uno;
+    cout "\nTipo 2: ";
+    cout total_tipo_dos;
+    cout "\nTipo 3: ";
+    cout total_tipo_tres;
+    cout "\nTipo 4: ";
+    cout total_tipo_cuatro;
+    cout "\nTipo 5: ";
+    cout total_tipo_cinco;
+
+    cout "\nEl anio con la mayor produccion de vino tipo 2 fue: ";
+    cout anio_mayor_tipo_dos;
+    cout "con una cantidad de ";
+    cout mayor_tipo_dos;
+    cout " litros";
+}

@@ -27,7 +27,7 @@ def get_lexical_analysis(file: Path):
         is_block_starting = []
         identifier_pattern = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*$")
         reserved_words_pattern = re.compile(
-            r"\b(if|else|do|while|switch|case|double|main|cin|cout|int|float)\b"
+            r"\b(if|else|do|while|switch|case|double|main|cin|cout|int|float|char)\b"
         )
         number_pattern = re.compile(r"\b\d+\b")
         symbol_pattern = re.compile(r"\(|\)|,|{|}|;")
@@ -35,6 +35,12 @@ def get_lexical_analysis(file: Path):
         logical_op_pattern = re.compile(r"\b(?:and|or)\b")
         aritmethic_op_pattern = re.compile(r"\+|-|\*|/|%|\^")
         relational_op_pattern = re.compile(r"<|>|!")
+        char_pattern = re.compile(r"'[a-zA-Z0-9]'")
+        string_literal_pattern = re.compile(r'"[^"]*"')
+
+
+
+
 
         for lineno, line in enumerate(f.readlines(), start=1):
             skip_col = 0
@@ -51,6 +57,20 @@ def get_lexical_analysis(file: Path):
                     if re.match(symbol_pattern, char) and not is_block_comment:
                         identify_symbol(char, tokens, lineno, lexpos)
                         continue
+
+                    if re.match(char_pattern, line[index_string:index_string + 3]):
+                        tokens.append(Token("CHAR_LITERAL", line[index_string:index_string + 3], lineno, lexpos))
+                        skip_col += 2  # Salta los caracteres del literal
+                        continue
+                    
+                    
+                    if re.match(string_literal_pattern, line[index_string:]):
+                        match = string_literal_pattern.match(line[index_string:])
+                        if match:
+                            value = match.group(0)  # Captura la cadena completa
+                            tokens.append(Token("STRING_LITERAL", value, lineno, lexpos))
+                            skip_col += len(value) - 1  # Saltar la longitud de la cadena
+                            continue
 
                     if re.match(assignment_pattern, char) and not is_block_comment:
                         if (index_string + 1 < len(line)) and line[
@@ -275,6 +295,11 @@ def identify_reserved_words(char: str, tokens: list, lineno: int, lexpos: int):
         tokens.append(Token("INT", char, lineno, lexpos))
     if char == "float":
         tokens.append(Token("FLOAT", char, lineno, lexpos))
+    if char == "char":  
+        tokens.append(Token("CHAR", char, lineno, lexpos))
+    if char == "default":
+        tokens.append(Token("DEFAULT", char, lineno, lexpos))
+
 
 
 if __name__ == "__main__":

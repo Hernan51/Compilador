@@ -90,18 +90,24 @@ class SymbolTable:
             return  # No hacemos nada si el nombre es "Identifier"
 
         # Definir un orden de prioridad de tipos
-        type_priority = {"int": 1, "float": 2}  # Puedes agregar más tipos con sus prioridades.
+        type_priority = {"int": 1, "float": 2, "char": 0}  # Puedes agregar más tipos con sus prioridades.
 
         # Verificar si la variable ya está en la tabla
         if name in self.table:
             existing_type = self.table[name][0]["type"]
             existing_priority = type_priority.get(existing_type, 0)
             new_priority = type_priority.get(var_type, 0)
+            existing_symbol = self.table[name][0]
+            if existing_symbol["type"] != var_type:
+                print(f"Actualizando tipo de '{name}' de {existing_symbol['type']} a {var_type}")
+                existing_symbol["type"] = var_type
 
             # Solo actualiza el tipo si el nuevo es de mayor prioridad
             if new_priority > existing_priority:
                 print(f"Actualizando tipo de '{name}' de {existing_type} a {var_type}")
                 self.table[name][0]["type"] = var_type
+
+        
         else:
             # Si la variable no está en la tabla, la añadimos
             loc = self.loc_counter  # Asignar LOC único
@@ -127,6 +133,8 @@ class SymbolTable:
         if var_type == "int" and isinstance(value, float):
             value = "Error de tipo de datos"
             print(f"Error de tipo de datos: No se puede asignar un valor float a la variable '{name}' de tipo int.")
+
+        
 
         # Imprimir el valor para verificar qué se está pasando
         print(f"Añadiendo símbolo: nombre={name}, tipo={var_type}, valor={value}, loc={loc}, línea={line}")

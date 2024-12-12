@@ -1,0 +1,32 @@
+main {
+    int matricula, semestre;
+    float promedio;
+    char carrera;
+
+    cin matricula;
+    cin carrera;
+    cin semestre;
+    cin promedio;
+
+    if (carrera == "Economía" and semestre >= 6 and promedio > 8.8) {
+        cout matricula;
+        cout carrera;
+        cout "Aceptado=1";
+    } else if (carrera == "Computación" and semestre >= 6 and promedio > 8.5) {
+        cout matricula;
+        cout carrera;
+        cout "Aceptado=1";
+    } else if (carrera == "Administración" and semestre >= 5 and promedio > 8.5) {
+        cout matricula;
+        cout carrera;
+        cout "Aceptado=1";
+    } else if (carrera == "Contabilidad" and semestre >= 5 and promedio > 8.5) {
+        cout matricula;
+        cout carrera;
+        cout "Aceptado=1";
+    } else {
+        cout matricula;
+        cout carrera;
+        cout "Aceptado=0";
+    }
+}

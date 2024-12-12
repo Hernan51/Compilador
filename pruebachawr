@@ -1,6 +1,73 @@
-main{
-    
-    float numero;
-    cout hola;
+main {
+    int matricula, semestre;
+    float promedio;
+    char carrera;
+    char ec;
+    // Leer datos del estudiante
+    cin matricula;
+    cin carrera;  // Usamos una sola letra para representar la carrera ('E', 'C', 'A', 'T')
+    cin semestre;
+    cin promedio;
 
+    switch (carrera) {
+        case 'E'
+            if ((semestre >= 6) and (promedio > 8.8)) {
+                cout "Matricula: ";
+                cout matricula;
+                cout "Carrera: Economia";
+                cout "Aceptado: 1";
+            } else {
+                cout "Matricula: ";
+                cout matricula;
+                cout "Carrera: Economia";
+                cout "Aceptado: 0";
+            }
+            break;
+
+        case 'C'
+            if (semestre >= 6 and promedio > 8.5) {
+                cout "Matricula: ";
+                cout matricula;
+                cout "Carrera: Computacion";
+                cout "Aceptado: 1";
+            } else {
+                cout "Matricula: ";
+                cout matricula;
+                cout "Carrera: Computacion";
+                cout "Aceptado: 0";
+            }
+            break;
+
+        case 'A'
+            if (semestre > 5 and promedio > 8.5) {
+                cout "Matricula: ";
+                cout matricula;
+                cout "Carrera: Administracion";
+                cout "Aceptado: 1";
+            } else {
+                cout "Matricula: ";
+                cout matricula;
+                cout "Carrera: Administracion";
+                cout "Aceptado: 0";
+            }
+            break;
+
+        case 'T'
+            if (semestre > 5 and promedio > 8.5) {
+                cout "Matricula: ";
+                cout matricula;
+                cout "Carrera: Contabilidad";
+                cout "Aceptado: 1";
+            } else {
+                cout "Matricula: ";
+                cout matricula;
+                cout "Carrera: Contabilidad";
+                cout "Aceptado: 0";
+            }
+            break;
+
+        default
+            cout " carrera no valida ";
+            break;
+    }
 }

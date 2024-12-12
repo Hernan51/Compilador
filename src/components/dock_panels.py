@@ -243,6 +243,7 @@ def write_to_intermediate_code_panel(text):
     """
     widget = get_intermediate_code_widget()
     if widget is not None:
+        widget.clear()
         widget.append(text)
     else:
         print("Error: Panel de código intermedio no está inicializado.")
