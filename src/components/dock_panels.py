@@ -100,12 +100,15 @@ def set_up_dock_panels(window: QMainWindow):
     window.addDockWidget(Qt.BottomDockWidgetArea, intermediate_code_panel)
 
     # Panel for the Results
+    # Panel for the Results
     results_panel = QDockWidget("Resultados", window)
     results_panel.setStyleSheet(open("./src/css/style.css", encoding="utf-8").read())
-    results_widget = QTextBrowser()
+    global results_widget
+    results_widget = QTextBrowser()  # Asignar el widget a la variable global
     results_widget.setStyleSheet(open("./src/css/style.css", encoding="utf-8").read())
     results_panel.setWidget(results_widget)
     window.addDockWidget(Qt.BottomDockWidgetArea, results_panel)
+
 
     # panel for the Lexical Errors
     lexic_err_panel = QDockWidget("Err. Lexicos", window)
@@ -249,6 +252,39 @@ def write_to_intermediate_code_panel(text):
         print("Error: Panel de código intermedio no está inicializado.")
 
 intermediate_code_widget = None
+results_widget = None  # Variable global para almacenar el widget de resultados
+
+results_widget = None  # Variable global para el widget de resultados
+
+def get_results_widget():
+    """
+    Devuelve el widget de la ventana de resultados.
+    """
+    return results_widget
+
+def clear_results_panel():
+    """
+    Limpia el contenido del panel de resultados.
+    """
+    widget = get_results_widget()
+    if widget is not None:
+        widget.clear()
+    else:
+        print("Error: El panel de resultados no está inicializado.")
+
+
+def write_to_results_panel(text):
+    """
+    Escribe texto en el panel de resultados.
+
+    Args:
+        text (str): El texto que se escribirá en el panel.
+    """
+    widget = get_results_widget()
+    if widget is not None:
+        widget.append(text)  # Agrega texto al final del QTextBrowser
+    else:
+        print("Error: El panel de resultados no está inicializado.")
 
 def get_intermediate_code_widget():
     """
@@ -295,6 +331,8 @@ def set_hash_table(symbols):
             
             idx += 1  # Incrementar el índice de fila
     
+
+
 def evaluate_expression(self, node, symbol_table):
     """
     Recursively evaluates an expression node using the values from the symbol table.

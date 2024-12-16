@@ -7,7 +7,8 @@ from pathlib import Path
 from parser_s import Parser
 from lexer import get_lexical_analysis
 from intermediate_code_generator import IntermediateCodeGenerator
-from components.dock_panels import write_to_intermediate_code_panel
+from components.dock_panels import write_to_intermediate_code_panel, clear_results_panel
+from interpreter import InterpreterThread  # Asegúrate de importar tu intérprete
 
 
 from PyQt5.QtWidgets import (
@@ -23,6 +24,7 @@ from PyQt5.QtWidgets import (
     QTabWidget,
     QFileDialog,
     QLabel,
+    QInputDialog
 )
 from PyQt5.QtCore import Qt, QDir, QModelIndex
 from PyQt5.QtGui import QFont
@@ -63,6 +65,23 @@ class MainWindow(QMainWindow):
         self.current_file = None  # Variable to store the current file
 
         self.init_ui()  # Call the method to initialize the UI
+
+    def start_interpreter(self, intermediate_code):
+        # Crear el intérprete y conectar señales
+        self.interpreter_thread = InterpreterThread(intermediate_code, self.symbol_table)
+        self.interpreter_thread.request_input_signal.connect(self.show_input_dialog)
+        self.interpreter_thread.start()
+
+    def show_input_dialog(self, var):
+        """
+        Muestra un cuadro de diálogo para ingresar valores desde el hilo principal.
+        """
+        value, ok = QInputDialog.getText(self, "Ingreso de Valor", f"Ingrese el valor para '{var}':")
+        if ok and value:
+            self.interpreter_thread.input_received = value  # Asignar el valor recibido al intérprete
+        else:
+            self.interpreter_thread.input_received = "0"  # Valor predeterminado si el usuario cancela
+        self.interpreter_thread.waiting_for_input = False  # Liberar el bloqueo del intérprete
 
     def init_ui(self):
         """Initialize the UI of the window."""
@@ -250,12 +269,23 @@ class MainWindow(QMainWindow):
                 icg.generate_code(ast)
 
                 # Obtener y mostrar el código intermedio
+                clear_results_panel()
                 intermediate_code = icg.get_code()
                 print("Intermediate Code:")
                 print(intermediate_code)
                 write_to_intermediate_code_panel(intermediate_code)
                 
-                    
+                print("Ejecutando intérprete...")
+                self.interpreter_thread = InterpreterThread(intermediate_code, symbols)
+
+                # Conectar la señal del intérprete al método para mostrar el cuadro de diálogo
+                self.interpreter_thread.request_input_signal.connect(self.show_input_dialog)
+
+                # Conectar la señal de finalización si la tienes
+                self.interpreter_thread.finished_signal.connect(self.on_interpreter_finished)
+
+                # Iniciar el intérprete
+                self.interpreter_thread.start()
                 self.statusBar().showMessage("Compilation successful", 2000)
             else:
                 # Mostrar mensaje de error si hubo fallos en el análisis léxico
@@ -269,6 +299,12 @@ class MainWindow(QMainWindow):
             tree_str += "%s%s\n" % (pre, node)
         return tree_str
     
+    def on_interpreter_finished(self):
+        """
+        Método que se ejecuta cuando el intérprete ha terminado su ejecución.
+        """
+        print("El intérprete ha finalizado. Compilación completada con éxito.")
+        self.statusBar().showMessage("Interpretación finalizada.", 2000)
 
 
 
