@@ -51,19 +51,21 @@ class InterpreterThread(QThread):
             self.request_input_signal.emit(var)
             self.waiting_for_input = True
 
-            # Esperar la entrada
+            # Esperar la entrada del usuario
             while self.waiting_for_input:
                 self.msleep(100)
 
             try:
                 value = self.input_received
-                if var == "carrera":  # Manejar cadenas
-                    self.symbol_table[var] = value.strip()
-                else:  # Manejar números
-                    self.symbol_table[var] = float(value) if '.' in value else int(value)
+                
+                # Asignar el valor directamente a la tabla de símbolos
+                self.symbol_table[var] = value
+
                 #write_to_results_panel(f"DEBUG: {var} = {self.symbol_table[var]}")
-            except ValueError:
-                self.symbol_table[var] = 0 if var != "carrera" else ""
+            except Exception as e:
+                # Mostrar mensaje de error y asignar un valor predeterminado
+                write_to_results_panel(f"Error al ingresar valor para '{var}': {e}")
+                self.symbol_table[var] = 0  # Asignar un valor predeterminado
             self.current_line += 1
 
 

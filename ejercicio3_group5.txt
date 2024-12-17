@@ -28,5 +28,6 @@ main {
         cout matricula;
         cout carrera;
         cout "Aceptado=0";
+        
     }
 }

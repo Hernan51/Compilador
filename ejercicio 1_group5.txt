@@ -6,7 +6,7 @@ main {
     
     volumen = 3.1416 * r * r * h;
     
-    area = 2 * 3.1416 * r * (r + h);
+    area = 2 * 3.1416 * r * h;
   
     cout  area;
     cout volumen;

@@ -276,7 +276,7 @@ class MainWindow(QMainWindow):
                 write_to_intermediate_code_panel(intermediate_code)
                 
                 print("Ejecutando intérprete...")
-                self.interpreter_thread = InterpreterThread(intermediate_code, symbols)
+                """self.interpreter_thread = InterpreterThread(intermediate_code, symbols)
 
                 # Conectar la señal del intérprete al método para mostrar el cuadro de diálogo
                 self.interpreter_thread.request_input_signal.connect(self.show_input_dialog)
@@ -285,7 +285,7 @@ class MainWindow(QMainWindow):
                 self.interpreter_thread.finished_signal.connect(self.on_interpreter_finished)
 
                 # Iniciar el intérprete
-                self.interpreter_thread.start()
+                self.interpreter_thread.start()"""
                 self.statusBar().showMessage("Compilation successful", 2000)
             else:
                 # Mostrar mensaje de error si hubo fallos en el análisis léxico
